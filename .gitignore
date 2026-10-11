@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Окружение (секреты)
+.env
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# IDE
+.idea/
