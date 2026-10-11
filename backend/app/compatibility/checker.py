@@ -1,7 +1,10 @@
 """Проверка сборки целиком и фильтр совместимых вариантов для ручного режима."""
 from dataclasses import dataclass
 
-from app.compatibility.rules import COMPLETE_BUILD_RULES, RULES, Issue, Level, recommended_psu_w
+from app.balance import Resolution
+from app.compatibility.rules import (
+    COMPLETE_BUILD_RULES, RULES, Issue, Level, cpu_gpu_balance, recommended_psu_w,
+)
 from app.domain import Build
 from app.models import Component
 
@@ -26,14 +29,22 @@ class CheckResult:
         return not self.errors
 
 
-def check_build(build: Build, complete: bool = False) -> CheckResult:
+def check_build(
+    build: Build,
+    complete: bool = False,
+    balance_resolution: Resolution | None = Resolution.QHD,
+) -> CheckResult:
     """Прогоняет сборку через все правила.
 
     complete=True — сборка считается законченной, и дополнительно проверяется,
     что выбраны все обязательные детали, есть вывод изображения и охлаждение.
+    balance_resolution — разрешение для проверки баланса CPU/GPU в играх;
+    None отключает проверку (для сценариев «работа» и «офис» она не имеет смысла).
     """
     rules = RULES + (COMPLETE_BUILD_RULES if complete else [])
     issues = [issue for rule in rules for issue in rule(build)]
+    if balance_resolution is not None:
+        issues += cpu_gpu_balance(build, balance_resolution)
     return CheckResult(
         issues=issues,
         total_price=build.total_price,
