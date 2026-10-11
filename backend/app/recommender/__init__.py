@@ -61,12 +61,13 @@ def recommend(parts: list[Component], request: RecommendRequest) -> Recommendati
     )
 
 
-def evaluate_build(parts: list[Component], request: RecommendRequest, build: Build) -> Recommendation:
+def evaluate_build(parts: list[Component], request: RecommendRequest, build: Build,
+                   tier: Tier | None = None) -> Recommendation:
     """Описание произвольной сборки в том же виде, что и рекомендации."""
     missing = [i.message for i in check_build(build, complete=True).errors if i.code == "missing_part"]
     if missing:
         raise RecommendError("Сборка неполная. " + " ".join(missing))
-    return _describe(BuildSearch(Catalog(parts), request), build, None)
+    return _describe(BuildSearch(Catalog(parts), request), build, tier)
 
 
 def _describe(search: BuildSearch, build: Build, tier: Tier | None) -> Recommendation:
