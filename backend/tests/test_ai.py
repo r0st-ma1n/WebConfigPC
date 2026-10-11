@@ -1,4 +1,6 @@
 """Тесты слоя ИИ без реальных запросов к модели: провайдер подменяется фейковым."""
+import json
+
 import pytest
 
 from app.ai import service
@@ -265,3 +267,36 @@ def test_openai_empty_stream_is_llm_error():
     provider, _ = make_openai_provider(set(), "")
     with pytest.raises(LLMError):
         list(provider.stream_text("sys", "q"))
+
+
+def test_explain_prompt_is_compact():
+    prompt = service._explain_prompt({**FACTS, "warnings": [], "gpu": None})
+    data = json.loads(prompt.split("\n", 1)[1])
+    assert "tier" not in data and "score" not in data  # служебные поля модели не нужны
+    assert "warnings" not in data and "gpu" not in data  # пустые тоже
+    assert data["cpu"]["title"] == "AMD Ryzen 5 7600"
+    assert "\n" not in prompt.split("\n", 1)[1]  # без отступов
+
+
+def test_ndjson_closes_generator_when_client_leaves():
+    import asyncio
+    import threading
+    from app.api.ai import _ndjson
+
+    closed = threading.Event()
+
+    def events():
+        try:
+            for i in range(1000):
+                yield {"delta": str(i)}
+        finally:
+            closed.set()  # здесь закрылось бы соединение с LLM
+
+    async def client():
+        stream = _ndjson(events())
+        first = await anext(stream)
+        await stream.aclose()  # клиент ушёл после первого куска
+        return first
+
+    assert asyncio.run(client()) == '{"delta": "0"}\n'
+    assert closed.wait(timeout=5)

@@ -19,25 +19,37 @@ interface Props {
 
 type Explanation = { text: string; source: 'llm' | 'template'; loading: boolean }
 
+// Готовые объяснения модели: при возврате к уже открытой сборке текст не генерируется заново.
+// Объяснение зависит и от параметров подбора, и от состава сборки — всё это входит в ключ
+const explained = new Map<string, string>()
+const CACHE_LIMIT = 50
+
+function remember(key: string, text: string) {
+  if (explained.size >= CACHE_LIMIT) explained.delete(explained.keys().next().value!) // самый старый
+  explained.set(key, text)
+}
+
 /** Сначала показываем шаблонное объяснение, а если подключён ИИ — заменяем его текстом модели,
  *  который дописывается по мере генерации. */
 function useExplanation(rec: Recommendation, params: RecommendParams, aiEnabled: boolean): Explanation {
+  const key = JSON.stringify([params, rec.parts.map((p) => p.id), rec.tier])
   // Текст модели запоминается вместе со сборкой, к которой он относится.
   // Пустой text — модель не справилась (или ещё не начала), показываем шаблон
-  const [llm, setLlm] = useState<{ rec: Recommendation; text: string; done: boolean } | null>(null)
+  const [llm, setLlm] = useState<{ key: string; text: string; done: boolean } | null>(null)
 
   useEffect(() => {
-    if (!aiEnabled) return
+    if (!aiEnabled || explained.has(key)) return
     // Пользователь мог выбрать другую сборку — тогда поток для старой обрывается
+    // (сервер в ответ останавливает генерацию)
     const controller = new AbortController()
     let text = ''
     let done = false
-    const show = () => setLlm({ rec, text, done })
+    const show = () => setLlm({ key, text, done })
     const fail = () => { text = ''; done = true; show() }
 
     api.explainStream(params, rec.parts.map((p) => p.id), rec.tier, (e) => {
       if ('delta' in e) text += e.delta
-      else if (e.source === 'llm') done = true
+      else if (e.source === 'llm') { done = true; remember(key, text) }
       else return fail() // сервер перешёл на шаблон — оборванный текст модели не показываем
       show()
     }, controller.signal)
@@ -45,9 +57,11 @@ function useExplanation(rec: Recommendation, params: RecommendParams, aiEnabled:
       .then(() => { if (!done) fail() })
       .catch(() => { if (!controller.signal.aborted) fail() })
     return () => controller.abort()
-  }, [rec, params, aiEnabled])
+  }, [key, rec, params, aiEnabled])
 
-  const current = llm?.rec === rec ? llm : null
+  const cached = aiEnabled ? explained.get(key) : undefined
+  if (cached) return { text: cached.trimStart(), source: 'llm', loading: false }
+  const current = llm?.key === key ? llm : null
   if (current?.text) return { text: current.text.trimStart(), source: 'llm', loading: !current.done }
   return { text: rec.explanation, source: 'template', loading: aiEnabled && !current?.done }
 }

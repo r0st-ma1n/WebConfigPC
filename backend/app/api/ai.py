@@ -1,5 +1,9 @@
 """ИИ: статус, разбор свободного запроса, объяснение сборки."""
+import asyncio
 import json
+import logging
+import threading
+from collections.abc import AsyncIterator, Generator
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -10,6 +14,8 @@ from app.models import Component
 from app.recommender import Tier, evaluate_build
 from app.repository import build_from_ids, get_parts
 from app.schemas import AiStatusOut, ExplainIn, ExplainOut, ParseIn, ParseOut
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai", tags=["ИИ"])
 
@@ -48,7 +54,41 @@ def explain_stream(body: ExplainIn, parts: list[Component] = Depends(get_parts))
     на строку (формат событий — в service.explain_stream)."""
     # Факты считаются до ответа: ошибки подбора вернутся обычным кодом 422, а не посреди потока
     events = service.explain_stream(_facts(body, parts))
-    return StreamingResponse(
-        (json.dumps(e, ensure_ascii=False) + "\n" for e in events),
-        media_type="application/x-ndjson",
-    )
+    return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
+
+
+async def _ndjson(events: Generator[dict]) -> AsyncIterator[str]:
+    """События -> строки NDJSON.
+
+    Генератор событий синхронный, поэтому читается в отдельном потоке. Когда клиент уходит
+    (выбрал другую сборку, закрыл страницу), этот поток сам закрывает генератор, а с ним
+    закрывается и соединение с LLM. Иначе модель дописывала бы брошенный ответ, занимая
+    видеокарту, и следующее объяснение ждало бы её."""
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[dict | None] = asyncio.Queue()
+    stop = threading.Event()
+
+    def put(item: dict | None) -> None:
+        try:
+            loop.call_soon_threadsafe(queue.put_nowait, item)
+        except RuntimeError:  # цикл событий уже закрыт — сервер останавливается
+            pass
+
+    def pump() -> None:
+        try:
+            for event in events:
+                if stop.is_set():
+                    break
+                put(event)
+        except Exception:
+            log.exception("Сбой при потоковой выдаче объяснения")
+        finally:
+            events.close()  # закрываем в этом же потоке, где генератор работал
+            put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    try:
+        while (event := await queue.get()) is not None:
+            yield json.dumps(event, ensure_ascii=False) + "\n"
+    finally:
+        stop.set()

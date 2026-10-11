@@ -6,7 +6,7 @@
 import json
 import logging
 import re
-from collections.abc import Iterator
+from collections.abc import Generator
 
 from pydantic import BaseModel, ValidationError
 
@@ -164,8 +164,16 @@ EXPLAIN_SYSTEM = """Ты — консультант магазина компь�
 - В конце коротко: что даст доплата (первый пункт upgrades) и где можно сэкономить (первый пункт savings), если они есть."""
 
 
+# Поля фактов, которые нужны интерфейсу, но не модели (есть scenario_title, оценка — внутренняя)
+_NOT_FOR_LLM = {"tier", "scenario", "score"}
+
+
 def _explain_prompt(facts: dict) -> str:
-    return "Данные о сборке:\n" + json.dumps(facts, ensure_ascii=False, indent=1)
+    # Компактно: каждый токен промпта — это время до первого слова, а локальная модель
+    # на слабой видеокарте читает промпт ~100 токенов в секунду. Пустые поля тоже не нужны:
+    # системный промпт и так просит упоминать warnings, upgrades и savings, только если они есть
+    data = {k: v for k, v in facts.items() if k not in _NOT_FOR_LLM and v not in (None, [], {})}
+    return "Данные о сборке:\n" + json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
 def explain(facts: dict) -> tuple[str, str]:
@@ -179,7 +187,7 @@ def explain(facts: dict) -> tuple[str, str]:
     return template_explanation(facts), "template"
 
 
-def explain_stream(facts: dict) -> Iterator[dict]:
+def explain_stream(facts: dict) -> Generator[dict]:
     """Объяснение сборки по частям — события для потоковой выдачи:
     {"delta": "..."} — очередной кусок текста модели;
     {"done": true, "source": "llm"} — текст из кусков готов;
