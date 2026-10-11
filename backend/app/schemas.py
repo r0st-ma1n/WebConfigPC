@@ -113,6 +113,8 @@ class AlternativeOut(BaseModel):
     score_delta_pct: float
     worth_it: bool
     new_part: ComponentOut
+    # Детали, которые меняются вынужденно (например, плата при смене процессора на другой сокет)
+    also_changed: list[ComponentOut]
     part_ids: list[int]  # детали сборки после замены — чтобы применить её одним запросом
 
     @classmethod
@@ -120,7 +122,9 @@ class AlternativeOut(BaseModel):
         return cls(
             kind=alt.kind, category=alt.category, text=alt.text, price_delta=alt.price_delta,
             score_delta_pct=alt.score_delta_pct, worth_it=alt.worth_it,
-            new_part=ComponentOut.from_model(alt.new_part), part_ids=alt.build.part_ids,
+            new_part=ComponentOut.from_model(alt.new_part),
+            also_changed=[ComponentOut.from_model(after) for _, after in alt.extra_changes],
+            part_ids=alt.build.part_ids,
         )
 
 
