@@ -50,6 +50,23 @@ class Build:
             return replace(self, storages=[*self.storages, part])
         return replace(self, **{slot: part})
 
+    def replace_part(self, part: Component) -> "Build":
+        """Как with_part, но накопитель заменяет все прежние (сборки из подбора
+        содержат один накопитель). Используется при поиске замен."""
+        if part.category == Category.STORAGE:
+            return replace(self, storages=[part])
+        return self.with_part(part)
+
+    def part_in_slot(self, category: Category) -> Component | None:
+        slot = SLOT_BY_CATEGORY[category]
+        if slot == "storages":
+            return self.storages[0] if self.storages else None
+        return getattr(self, slot)
+
+    @property
+    def part_ids(self) -> list[int]:
+        return [p.id for p in self.parts]
+
     @property
     def parts(self) -> list[Component]:
         single = [self.cpu, self.gpu, self.motherboard, self.ram, self.psu, self.case, self.cooler]

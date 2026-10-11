@@ -86,6 +86,25 @@ def cooler_tdp(b: Build) -> list[Issue]:
     return []
 
 
+# Чипсеты начального уровня: на таких платах простая подсистема питания процессора (VRM)
+ENTRY_CHIPSETS = {"A520", "A620", "H610"}
+# Начиная с этого потребления процессору нужна плата среднего уровня
+HIGH_POWER_CPU_W = 150
+
+
+def board_vrm(b: Build) -> list[Issue]:
+    if (b.cpu and b.motherboard and b.motherboard.chipset in ENTRY_CHIPSETS
+            and b.cpu.power_w >= HIGH_POWER_CPU_W):
+        return [Issue(
+            Level.WARNING, "board_vrm",
+            f"Плата {b.motherboard.title} на чипсете {b.motherboard.chipset} — начального уровня. "
+            f"Её питание может не выдержать процессор {b.cpu.title} ({b.cpu.power_w} Вт) "
+            f"под долгой нагрузкой: возможны перегрев платы и снижение частот.",
+            _ids(b.motherboard, b.cpu),
+        )]
+    return []
+
+
 # ---------- Оперативная память ----------
 
 
@@ -229,15 +248,19 @@ def psu_power(b: Build) -> list[Issue]:
 # ---------- Баланс ----------
 
 
-def cpu_gpu_balance(b: Build) -> list[Issue]:
-    """Предупреждение о дисбалансе в играх (оценка для разрешения 1440p)."""
+def cpu_gpu_balance(b: Build, resolution: Resolution = Resolution.QHD) -> list[Issue]:
+    """Предупреждение о дисбалансе в играх для заданного разрешения.
+
+    Это правило не входит в RULES: check_build вызывает его отдельно, потому что ему
+    нужно разрешение, а для неигровых сценариев проверка баланса отключается.
+    """
     if not (b.cpu and b.gpu):
         return []
-    balance = check_balance(b.cpu.perf_score, b.gpu.perf_score, Resolution.QHD)
+    balance = check_balance(b.cpu.perf_score, b.gpu.perf_score, resolution)
     if balance.kind == BalanceKind.CPU_WEAK:
         return [Issue(
             Level.WARNING, "cpu_bottleneck",
-            f"Процессор {b.cpu.title} будет ограничивать видеокарту {b.gpu.title} в играх: "
+            f"Процессор {b.cpu.title} будет ограничивать видеокарту {b.gpu.title} в играх ({resolution}): "
             f"часть её производительности не раскроется.",
             _ids(b.cpu, b.gpu),
         )]
@@ -256,6 +279,7 @@ RULES: list[Callable[[Build], list[Issue]]] = [
     cpu_motherboard_socket,
     cooler_socket,
     cooler_tdp,
+    board_vrm,
     ram_type,
     ram_slots_and_capacity,
     m2_slots,
@@ -263,7 +287,6 @@ RULES: list[Callable[[Build], list[Issue]]] = [
     gpu_length,
     cooler_fits_case,
     psu_power,
-    cpu_gpu_balance,
 ]
 
 
