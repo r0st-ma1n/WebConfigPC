@@ -1,5 +1,6 @@
 """Интерфейс провайдера LLM. Чтобы подключить новый провайдер, достаточно
-реализовать два метода и добавить его в factory.py."""
+реализовать три метода и добавить его в factory.py."""
+from collections.abc import Iterator
 from typing import Protocol
 
 
@@ -18,4 +19,9 @@ class LLMProvider(Protocol):
 
     def generate_text(self, system: str, prompt: str) -> str:
         """Обычный текстовый ответ."""
+        ...
+
+    def stream_text(self, system: str, prompt: str) -> Iterator[str]:
+        """Текстовый ответ по частям, по мере генерации. LLMError может возникнуть
+        и до первой части, и посреди потока — тогда уже выданный текст недействителен."""
         ...

@@ -19,23 +19,37 @@ interface Props {
 
 type Explanation = { text: string; source: 'llm' | 'template'; loading: boolean }
 
-/** Сначала показываем шаблонное объяснение, а если подключён ИИ — заменяем его текстом модели. */
+/** Сначала показываем шаблонное объяснение, а если подключён ИИ — заменяем его текстом модели,
+ *  который дописывается по мере генерации. */
 function useExplanation(rec: Recommendation, params: RecommendParams, aiEnabled: boolean): Explanation {
-  // Ответ модели запоминается вместе со сборкой, к которой он относится
-  const [llm, setLlm] = useState<{ rec: Recommendation; text: string | null } | null>(null)
+  // Текст модели запоминается вместе со сборкой, к которой он относится.
+  // Пустой text — модель не справилась (или ещё не начала), показываем шаблон
+  const [llm, setLlm] = useState<{ rec: Recommendation; text: string; done: boolean } | null>(null)
 
   useEffect(() => {
     if (!aiEnabled) return
-    let cancelled = false // ответ мог прийти, когда пользователь уже выбрал другую сборку
-    api.explain(params, rec.parts.map((p) => p.id), rec.tier)
-      .then((r) => !cancelled && setLlm({ rec, text: r.source === 'llm' ? r.text : null }))
-      .catch(() => !cancelled && setLlm({ rec, text: null }))
-    return () => { cancelled = true }
+    // Пользователь мог выбрать другую сборку — тогда поток для старой обрывается
+    const controller = new AbortController()
+    let text = ''
+    let done = false
+    const show = () => setLlm({ rec, text, done })
+    const fail = () => { text = ''; done = true; show() }
+
+    api.explainStream(params, rec.parts.map((p) => p.id), rec.tier, (e) => {
+      if ('delta' in e) text += e.delta
+      else if (e.source === 'llm') done = true
+      else return fail() // сервер перешёл на шаблон — оборванный текст модели не показываем
+      show()
+    }, controller.signal)
+      // Поток закрылся без финального события — ответ неполный
+      .then(() => { if (!done) fail() })
+      .catch(() => { if (!controller.signal.aborted) fail() })
+    return () => controller.abort()
   }, [rec, params, aiEnabled])
 
-  const ready = llm?.rec === rec
-  if (ready && llm.text) return { text: llm.text, source: 'llm', loading: false }
-  return { text: rec.explanation, source: 'template', loading: aiEnabled && !ready }
+  const current = llm?.rec === rec ? llm : null
+  if (current?.text) return { text: current.text.trimStart(), source: 'llm', loading: !current.done }
+  return { text: rec.explanation, source: 'template', loading: aiEnabled && !current?.done }
 }
 
 export function BuildDetails({ rec, allocation, params, aiEnabled, busy, onApply }: Props) {
@@ -69,7 +83,9 @@ export function BuildDetails({ rec, allocation, params, aiEnabled, busy, onApply
         {explanation.text.split('\n\n').map((p, i) => <p key={i}>{p}</p>)}
         <p className="source-note">
           {explanation.loading
-            ? 'ИИ готовит объяснение простыми словами…'
+            ? explanation.source === 'llm'
+              ? 'ИИ пишет объяснение…'
+              : 'ИИ готовит объяснение простыми словами…'
             : explanation.source === 'llm'
               ? 'Объяснение написал ИИ по данным алгоритма подбора.'
               : 'Объяснение составлено по данным алгоритма подбора.'}

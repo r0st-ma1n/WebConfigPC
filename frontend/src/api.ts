@@ -26,6 +26,37 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return data as T
 }
 
+/** Событие потока объяснения (формат — в backend/app/ai/service.py, explain_stream) */
+export type ExplainEvent =
+  | { delta: string }
+  | { done: true; source: 'llm' | 'template'; text?: string }
+
+/** Читает NDJSON-поток объяснения и передаёт события в onEvent по мере прихода. */
+async function explainStream(
+  params: RecommendParams, partIds: number[], tier: string | null,
+  onEvent: (e: ExplainEvent) => void, signal: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/ai/explain/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...params, part_ids: partIds, tier }),
+    signal,
+  })
+  if (!response.ok || !response.body) throw new ApiError('Не удалось получить объяснение.')
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    // Событие может прийти разрезанным на части — обрабатываем только целые строки
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line) as ExplainEvent)
+  }
+}
+
 export const api = {
   components: (category: Category) => request<Component[]>(`/components?category=${category}`),
   options: (partIds: number[], category: Category) =>
@@ -37,6 +68,5 @@ export const api = {
     request<Recommendation>('/recommend/evaluate', { ...params, part_ids: partIds }),
   aiStatus: () => request<AiStatus>('/ai/status'),
   parse: (text: string) => request<ParseResult>('/ai/parse', { text }),
-  explain: (params: RecommendParams, partIds: number[], tier: string | null) =>
-    request<{ text: string; source: 'llm' | 'template' }>('/ai/explain', { ...params, part_ids: partIds, tier }),
+  explainStream,
 }

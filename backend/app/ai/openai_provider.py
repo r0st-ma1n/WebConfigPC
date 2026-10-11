@@ -2,7 +2,9 @@
 Адрес API задаётся в LLM_BASE_URL, модель — в LLM_MODEL (обязательно)."""
 import json
 import re
+from collections.abc import Iterator
 
+import httpx2
 import openai
 
 from app.ai.base import LLMError
@@ -78,3 +80,25 @@ class OpenAICompatibleProvider:
 
     def generate_text(self, system: str, prompt: str) -> str:
         return self._chat(system, prompt)
+
+    def stream_text(self, system: str, prompt: str) -> Iterator[str]:
+        got_text = False
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+                stream=True,
+            )
+            with stream:
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content if chunk.choices else None
+                    if delta:
+                        got_text = True
+                        yield delta
+        except openai.APIStatusError as e:
+            raise LLMError(f"Ошибка API ({e.status_code})") from e
+        except (openai.APIError, httpx2.TransportError) as e:
+            # Соединение может оборваться и посреди потока, когда часть текста уже выдана
+            raise LLMError("Соединение с API прервалось") from e
+        if not got_text:
+            raise LLMError("Пустой ответ модели")
