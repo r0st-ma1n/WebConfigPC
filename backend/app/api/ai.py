@@ -1,5 +1,8 @@
 """ИИ: статус, разбор свободного запроса, объяснение сборки."""
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from app.ai import service
 from app.ai.factory import get_provider
@@ -26,10 +29,26 @@ def parse(body: ParseIn, parts: list[Component] = Depends(get_parts)):
     return ParseOut(params=params, source=source, notes=notes)
 
 
-@router.post("/explain", response_model=ExplainOut)
-def explain(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
+def _facts(body: ExplainIn, parts: list[Component]) -> dict:
+    """Факты о сборке, по которым модель пишет объяснение."""
     build = build_from_ids(parts, body.part_ids)
     tier = Tier(body.tier) if body.tier else None
-    rec = evaluate_build(parts, body.to_request(), build, tier)
-    text, source = service.explain(rec.facts)
+    return evaluate_build(parts, body.to_request(), build, tier).facts
+
+
+@router.post("/explain", response_model=ExplainOut)
+def explain(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
+    text, source = service.explain(_facts(body, parts))
     return ExplainOut(text=text, source=source)
+
+
+@router.post("/explain/stream")
+def explain_stream(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
+    """То же объяснение, но текст приходит по мере генерации: NDJSON, одно событие
+    на строку (формат событий — в service.explain_stream)."""
+    # Факты считаются до ответа: ошибки подбора вернутся обычным кодом 422, а не посреди потока
+    events = service.explain_stream(_facts(body, parts))
+    return StreamingResponse(
+        (json.dumps(e, ensure_ascii=False) + "\n" for e in events),
+        media_type="application/x-ndjson",
+    )

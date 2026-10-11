@@ -18,8 +18,9 @@ class FakeProvider:
     name = "fake"
     model = "fake-model"
 
-    def __init__(self, json_answer=None, text_answer="", error=False):
+    def __init__(self, json_answer=None, text_answer="", error=False, chunks=(), fail_after=None):
         self.json_answer, self.text_answer, self.error = json_answer, text_answer, error
+        self.chunks, self.fail_after = chunks, fail_after  # fail_after: обрыв потока после N кусков
         self.prompts = []
 
     def generate_json(self, system, prompt, schema):
@@ -33,6 +34,13 @@ class FakeProvider:
         if self.error:
             raise LLMError("недоступна")
         return self.text_answer
+
+    def stream_text(self, system, prompt):
+        self.prompts.append(prompt)
+        for i, chunk in enumerate(self.chunks):
+            if i == self.fail_after:
+                raise LLMError("оборвалась")
+            yield chunk
 
 
 @pytest.fixture
@@ -155,6 +163,27 @@ def test_explain_falls_back_to_template(use_provider):
     assert "встроенной графики" in text
 
 
+def test_explain_stream_with_llm(use_provider):
+    use_provider(FakeProvider(chunks=["Простое ", "объяснение."]))
+    assert list(service.explain_stream(FACTS)) == [
+        {"delta": "Простое "}, {"delta": "объяснение."}, {"done": True, "source": "llm"},
+    ]
+
+
+def test_explain_stream_broken_midway_falls_back_to_template(use_provider):
+    use_provider(FakeProvider(chunks=["Начало ", "конец"], fail_after=1))
+    *deltas, last = service.explain_stream(FACTS)
+    assert deltas == [{"delta": "Начало "}]
+    # Шаблон заменяет оборванный текст целиком
+    assert last == {"done": True, "source": "template", "text": service.template_explanation(FACTS)}
+
+
+def test_explain_stream_without_provider(use_provider):
+    use_provider(None)
+    events = list(service.explain_stream(FACTS))
+    assert len(events) == 1 and events[0]["source"] == "template"
+
+
 def test_factory_disabled_without_key(monkeypatch):
     from app.ai import factory
     factory.get_provider.cache_clear()
@@ -166,6 +195,16 @@ def test_factory_disabled_without_key(monkeypatch):
 
 # ---------- OpenAI-совместимый провайдер ----------
 
+class FakeStream(list):
+    """Поток чанков: итерируется и закрывается через with, как openai.Stream."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
 class FakeCompletions:
     """Имитация chat.completions: принимает только форматы из accepted, иначе отвечает 400."""
 
@@ -173,9 +212,13 @@ class FakeCompletions:
         self.accepted, self.answer = accepted, answer
         self.formats = []
 
-    def create(self, model, messages, response_format):
+    def create(self, model, messages, response_format=None, stream=False):
         import httpx
         import openai
+        if stream:  # ответ кусками по словам, как приходят чанки от API
+            deltas = [type("D", (), {"content": w})() for w in self.answer.split(" ") if w] + [
+                type("D", (), {"content": None})()]  # последний чанк без текста
+            return FakeStream([type("Ch", (), {"choices": [type("C", (), {"delta": d})()]})() for d in deltas])
         kind = response_format["type"] if isinstance(response_format, dict) else "none"
         self.formats.append(kind)
         if kind not in self.accepted:
@@ -211,3 +254,14 @@ def test_openai_bad_json_is_llm_error():
     provider, _ = make_openai_provider({"json_object"}, "не json")
     with pytest.raises(LLMError):
         provider.generate_json("sys", "q", {"type": "object"})
+
+
+def test_openai_stream_text():
+    provider, _ = make_openai_provider(set(), "раз два три")
+    assert list(provider.stream_text("sys", "q")) == ["раз", "два", "три"]
+
+
+def test_openai_empty_stream_is_llm_error():
+    provider, _ = make_openai_provider(set(), "")
+    with pytest.raises(LLMError):
+        list(provider.stream_text("sys", "q"))

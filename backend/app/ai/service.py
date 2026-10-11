@@ -6,6 +6,7 @@
 import json
 import logging
 import re
+from collections.abc import Iterator
 
 from pydantic import BaseModel, ValidationError
 
@@ -163,13 +164,34 @@ EXPLAIN_SYSTEM = """Ты — консультант магазина компь�
 - В конце коротко: что даст доплата (первый пункт upgrades) и где можно сэкономить (первый пункт savings), если они есть."""
 
 
+def _explain_prompt(facts: dict) -> str:
+    return "Данные о сборке:\n" + json.dumps(facts, ensure_ascii=False, indent=1)
+
+
 def explain(facts: dict) -> tuple[str, str]:
     """Объяснение сборки -> (текст, источник "llm"/"template")."""
     provider = get_provider()
     if provider is not None:
         try:
-            prompt = "Данные о сборке:\n" + json.dumps(facts, ensure_ascii=False, indent=1)
-            return provider.generate_text(EXPLAIN_SYSTEM, prompt).strip(), "llm"
+            return provider.generate_text(EXPLAIN_SYSTEM, _explain_prompt(facts)).strip(), "llm"
         except LLMError as e:
             log.warning("LLM не сформировала объяснение, используется шаблон: %s", e)
     return template_explanation(facts), "template"
+
+
+def explain_stream(facts: dict) -> Iterator[dict]:
+    """Объяснение сборки по частям — события для потоковой выдачи:
+    {"delta": "..."} — очередной кусок текста модели;
+    {"done": true, "source": "llm"} — текст из кусков готов;
+    {"done": true, "source": "template", "text": "..."} — ИИ не справился: показать этот текст
+    вместо всего, что пришло раньше (модель могла оборваться посреди ответа)."""
+    provider = get_provider()
+    if provider is not None:
+        try:
+            for delta in provider.stream_text(EXPLAIN_SYSTEM, _explain_prompt(facts)):
+                yield {"delta": delta}
+            yield {"done": True, "source": "llm"}
+            return
+        except LLMError as e:
+            log.warning("LLM не сформировала объяснение, используется шаблон: %s", e)
+    yield {"done": True, "source": "template", "text": template_explanation(facts)}
