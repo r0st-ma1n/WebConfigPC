@@ -162,3 +162,52 @@ def test_factory_disabled_without_key(monkeypatch):
     monkeypatch.setattr(factory.settings, "llm_api_key", "")
     assert factory.get_provider() is None
     factory.get_provider.cache_clear()
+
+
+# ---------- OpenAI-совместимый провайдер ----------
+
+class FakeCompletions:
+    """Имитация chat.completions: принимает только форматы из accepted, иначе отвечает 400."""
+
+    def __init__(self, accepted, answer):
+        self.accepted, self.answer = accepted, answer
+        self.formats = []
+
+    def create(self, model, messages, response_format):
+        import httpx
+        import openai
+        kind = response_format["type"] if isinstance(response_format, dict) else "none"
+        self.formats.append(kind)
+        if kind not in self.accepted:
+            response = httpx.Response(400, request=httpx.Request("POST", "http://test"))
+            raise openai.BadRequestError("unsupported response_format", response=response, body=None)
+        message = type("M", (), {"content": self.answer})
+        return type("R", (), {"choices": [type("C", (), {"message": message})]})
+
+
+def make_openai_provider(accepted, answer):
+    from app.ai.openai_provider import OpenAICompatibleProvider
+    provider = OpenAICompatibleProvider("key", "model", "http://test/v1")
+    completions = FakeCompletions(accepted, answer)
+    provider.client = type("Client", (), {"chat": type("Chat", (), {"completions": completions})})
+    return provider, completions
+
+
+def test_openai_falls_back_to_json_schema():
+    # Как LM Studio: json_object даёт 400, json_schema работает; выбранный формат запоминается
+    provider, completions = make_openai_provider({"json_schema"}, '{"a": 1}')
+    assert provider.generate_json("sys", "q", {"type": "object"}) == {"a": 1}
+    assert provider.generate_json("sys", "q", {"type": "object"}) == {"a": 1}
+    assert completions.formats == ["json_object", "json_schema", "json_schema"]
+
+
+def test_openai_without_response_format_strips_wrappers():
+    provider, completions = make_openai_provider({"none"}, '<think>хм</think>\n```json\n{"a": 1}\n```')
+    assert provider.generate_json("sys", "q", {"type": "object"}) == {"a": 1}
+    assert completions.formats == ["json_object", "json_schema", "none"]
+
+
+def test_openai_bad_json_is_llm_error():
+    provider, _ = make_openai_provider({"json_object"}, "не json")
+    with pytest.raises(LLMError):
+        provider.generate_json("sys", "q", {"type": "object"})
