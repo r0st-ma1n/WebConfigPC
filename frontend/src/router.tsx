@@ -1,5 +1,5 @@
 /* oxlint-disable react/only-export-components */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type AnchorHTMLAttributes, type ReactNode } from 'react'
 
 const PathContext = createContext<{ path: string; navigate: (path: string) => void }>({ path: '/', navigate: () => {} })
 
@@ -15,9 +15,11 @@ export function Router({ children }: { children: ReactNode }) {
 
 export function usePath() { return useContext(PathContext).path }
 
-export function Link({ to, children, ...props }: { to: string; children: ReactNode; className?: string }) {
+export function Link({ to, children, ...props }: { to: string; children: ReactNode } & AnchorHTMLAttributes<HTMLAnchorElement>) {
   const { navigate } = useContext(PathContext)
   return <a href={to} {...props} onClick={(event) => {
+    props.onClick?.(event)
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
     if (window.location.pathname !== to) window.history.pushState({}, '', to)
     navigate(to)

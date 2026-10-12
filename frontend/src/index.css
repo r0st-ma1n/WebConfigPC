@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* ===== Токены оформления =====
    Светлая тема: холодный «алюминиевый» фон, тёмно-синий текст, акцент цвета печатной платы.
    Тёмная тема подменяет те же переменные. */
@@ -345,6 +347,14 @@ details.more .field + .field { margin-top: 12px; }
 .summary dd { margin: 0; text-align: right; font-weight: 600; }
 
 .loading { color: var(--muted); font-size: 14px; }
+.part-expand { width: 100%; display: grid; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.part-expand:hover .part-title { color: var(--accent); }
+.part-extra { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 4px 12px; margin-top: 8px; padding: 9px 10px; border-left: 2px solid var(--accent); background: var(--surface-2); color: var(--muted); font-size: 12px; }
+.part-extra b { color: var(--ink-2); text-transform: capitalize; }
+.result-skeleton { display: grid; gap: 14px; }
+.result-skeleton span { display: block; height: 18px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), #29302e, var(--surface-2)); background-size: 200% 100%; animation: skeleton 1.2s ease-in-out infinite; }
+.result-skeleton span:nth-child(1) { width: 38%; height: 28px; }.result-skeleton span:nth-child(2) { width: 70%; }.result-skeleton span:nth-child(3) { width: 90%; height: 70px; }.result-skeleton span:nth-child(4) { width: 100%; height: 16px; }.result-skeleton span:nth-child(5) { width: 82%; height: 16px; }.result-skeleton span:nth-child(6) { width: 64%; height: 16px; }
+@keyframes skeleton { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ===== Адаптивность ===== */

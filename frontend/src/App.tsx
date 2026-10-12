@@ -13,11 +13,11 @@ const builds = [
 
 function Header({ ai }: { ai: AiStatus | null }) {
   const path = usePath()
-  return <header className="site-header"><Link className="brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><nav className="main-nav" aria-label="Главная навигация">{[['/', 'Главная'], ['/recommend', 'Подбор'], ['/manual', 'Ручная сборка'], ['/info', 'База знаний']].map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className={`nav-link${path === to ? ' active' : ''}`}>{label}</NavLink>)}</nav><div className="header-actions"><span className="header-status"><i />{ai?.enabled ? `ИИ · ${ai.model}` : 'Сервис готов'}</span><button className="profile-button" type="button" aria-label="Личный кабинет">↗</button></div></header>
+  return <header className="site-header flex flex-wrap items-center gap-5 px-5 md:flex-nowrap md:gap-12 md:px-[5vw]"><Link className="brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><nav className="main-nav flex w-full items-center gap-6 overflow-x-auto md:w-auto md:gap-8" aria-label="Главная навигация">{[['/', 'Главная'], ['/recommend', 'Подбор'], ['/manual', 'Ручная сборка'], ['/info', 'База знаний']].map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className={`nav-link${path === to ? ' active' : ''}`}>{label}</NavLink>)}</nav><div className="header-actions ml-auto flex items-center gap-4"><span className="header-status"><i />{ai?.enabled ? `ИИ · ${ai.model}` : 'Сервис готов'}</span><button className="profile-button" type="button" aria-label="Личный кабинет">↗</button></div></header>
 }
 
 function Footer() {
-  return <footer className="site-footer"><Link className="brand footer-brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><p>Помогаем собрать компьютер, который подходит именно вам.</p><div className="footer-links"><Link to="/recommend">Подбор</Link><Link to="/manual">Конструктор</Link><Link to="/info">База знаний</Link><a href="mailto:hello@pcbuilder.local">Контакты</a></div><small>Цены ориентировочные. Перед покупкой уточняйте наличие и стоимость у продавца.</small></footer>
+  return <footer className="site-footer grid gap-6 px-6 md:grid-cols-[1fr_1.5fr_2fr] md:px-[7vw]"><Link className="brand footer-brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><p>Помогаем собрать компьютер, который подходит именно вам.</p><div className="footer-links flex flex-wrap gap-5"><Link to="/recommend">Подбор</Link><Link to="/manual">Конструктор</Link><Link to="/info">База знаний</Link><a href="mailto:hello@pcbuilder.local">Контакты</a></div><small>Цены ориентировочные. Перед покупкой уточняйте наличие и стоимость у продавца.</small></footer>
 }
 
 function HomePage() {
@@ -32,7 +32,7 @@ function InfoPage() { const [open,setOpen]=useState('01'); return <div className
 
 function AppRoutes({ ai }: { ai: AiStatus | null }) {
   const path = usePath()
-  return <><Header ai={ai}/><main className="route-content"><RouteView path={path} routes={{ '/': <HomePage/>, '/recommend': <div className="content-page"><RecommendPage ai={ai}/></div>, '/manual': <div className="content-page"><ManualPage/></div>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/></main><Footer/></>
+  return <><Header ai={ai}/><main className="route-content min-h-[60vh]"><RouteView path={path} routes={{ '/': <HomePage/>, '/recommend': <div className="content-page mx-auto grid w-full max-w-[1280px] gap-6 px-6 py-14 md:px-[5vw] md:py-20"><RecommendPage ai={ai}/></div>, '/manual': <div className="content-page mx-auto grid w-full max-w-[1280px] gap-6 px-6 py-14 md:px-[5vw] md:py-20"><ManualPage/></div>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/></main><Footer/></>
 }
 
 export default function App() {
