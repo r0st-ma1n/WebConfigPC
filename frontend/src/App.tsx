@@ -3,38 +3,40 @@ import { api } from './api'
 import { ManualPage } from './pages/ManualPage'
 import { RecommendPage } from './pages/RecommendPage'
 import type { AiStatus } from './types'
+import { Link, NavLink, Router, RouteView, usePath } from './router'
 
-type Tab = 'recommend' | 'manual'
+const builds = [
+  { name: 'Игровой старт', label: '1080p · первые победы', price: 'от 68 000 ₽', icon: '01', tone: 'mint' },
+  { name: 'Оптимальный 2K', label: '1440p · золотая середина', price: 'от 126 000 ₽', icon: '02', tone: 'violet' },
+  { name: 'Ультимативный 4K', label: '4K · никаких компромиссов', price: 'от 248 000 ₽', icon: '03', tone: 'orange' },
+]
+
+function Header({ ai }: { ai: AiStatus | null }) {
+  const path = usePath()
+  return <header className="site-header flex flex-wrap items-center gap-5 px-5 md:flex-nowrap md:gap-12 md:px-[5vw]"><Link className="brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><nav className="main-nav flex w-full items-center gap-6 overflow-x-auto md:w-auto md:gap-8" aria-label="Главная навигация">{[['/', 'Главная'], ['/recommend', 'Подбор'], ['/manual', 'Ручная сборка'], ['/info', 'База знаний']].map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className={`nav-link${path === to ? ' active' : ''}`}>{label}</NavLink>)}</nav><div className="header-actions ml-auto flex items-center gap-4"><span className="header-status"><i />{ai?.enabled ? `ИИ · ${ai.model}` : 'Сервис готов'}</span><button className="profile-button" type="button" aria-label="Личный кабинет">↗</button></div></header>
+}
+
+function Footer() {
+  return <footer className="site-footer grid gap-6 px-6 md:grid-cols-[1fr_1.5fr_2fr] md:px-[7vw]"><Link className="brand footer-brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><p>Помогаем собрать компьютер, который подходит именно вам.</p><div className="footer-links flex flex-wrap gap-5"><Link to="/recommend">Подбор</Link><Link to="/manual">Конструктор</Link><Link to="/info">База знаний</Link><a href="mailto:hello@pcbuilder.local">Контакты</a></div><small>Цены ориентировочные. Перед покупкой уточняйте наличие и стоимость у продавца.</small></footer>
+}
+
+function HomePage() {
+  return <div className="home-page"><section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" />ВАШ СЛЕДУЮЩИЙ ПК НАЧИНАЕТСЯ ЗДЕСЬ</div><h1>Хороший ПК.<br/><span>Без сложного выбора.</span></h1><p>Расскажите, чем вы занимаетесь и на какой бюджет рассчитываете. Мы подберём сбалансированную сборку и объясним каждую деталь.</p><div className="hero-actions"><Link className="btn btn-primary hero-cta" to="/recommend">Подобрать компьютер <span>↗</span></Link><Link className="hero-secondary" to="/manual">Собрать самостоятельно <span>→</span></Link></div><div className="hero-proof"><span className="proof-avatars"><i>●</i><i>●</i><i>●</i></span><span>Совместимость каждой детали<br/><b>проверяется автоматически</b></span></div></div><div className="hero-art" aria-label="Иллюстрация игрового компьютера"><div className="art-glow"/><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="pc-case"><div className="case-glass"><div className="fan fan-one"><i/></div><div className="fan fan-two"><i/></div><div className="gpu-bar"/><div className="ram-bar"/></div><div className="case-base"/></div><span className="art-chip chip-top">RTX READY</span><span className="art-chip chip-bottom">01 / PERFORMANCE</span><div className="art-coordinates">55°45' N &nbsp; 37°37' E</div></div><div className="hero-index">01 <span/> 04</div></section>
+    <section className="benefits-section"><div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ПОЧЕМУ СБОРЩИК</div><h2>Вы выбираете задачу.<br/><span>Мы — точные детали.</span></h2></div><p>Никакой магии, только понятные рекомендации и проверенная совместимость.</p></div><div className="benefit-grid">{[{n:'01',title:'Всё совместимо',desc:'Проверяем сокеты, габариты, питание и работу комплектующих вместе.',icon:'⌘'},{n:'02',title:'Бюджет под контролем',desc:'Распределяем бюджет в пользу деталей, которые действительно влияют на результат.',icon:'↗'},{n:'03',title:'Понятный выбор',desc:'Показываем, почему каждая деталь попала в сборку и на чём можно сэкономить.',icon:'◎'},{n:'04',title:'Честные ориентиры',desc:'Сравниваем стоимость и производительность, чтобы вы видели ценность каждого рубля.',icon:'₽'}].map((item)=><article className="benefit-card" key={item.n}><div className="benefit-card-top"><span>{item.n} / 04</span><i>{item.icon}</i></div><h3>{item.title}</h3><p>{item.desc}</p></article>)}</div></section>
+    <section className="builds-section"><div className="builds-heading"><div><div className="eyebrow"><span className="eyebrow-line"/>ХОРОШО СОБРАНО</div><h2>Популярные сборки</h2></div><Link className="text-link" to="/recommend">Посмотреть все <span>↗</span></Link></div><div className="build-grid">{builds.map((b)=><article className={`preset-card ${b.tone}`} key={b.name}><div className="preset-top"><span>КОНФИГУРАЦИЯ · {b.icon}</span><span className="preset-arrow">↗</span></div><div className="preset-art"><div className="preset-ring"/><div className="preset-tower"><i/><i/><b/></div><span className="preset-code">PC / {b.icon}</span></div><div className="preset-info"><div><h3>{b.name}</h3><p>{b.label}</p></div><strong>{b.price}</strong></div><Link to="/recommend" className="preset-link">Посмотреть детали <span>→</span></Link></article>)}</div></section>
+    <section className="closing-cta"><div><div className="eyebrow"><span className="eyebrow-line"/>ГОТОВЫ НАЧАТЬ?</div><h2>Ваш идеальный сетап<br/><span>уже близко.</span></h2></div><Link className="btn btn-primary hero-cta" to="/recommend">Начать подбор <span>↗</span></Link><div className="closing-mark">С.</div></section></div>
+}
+
+const articles = [{n:'01',tag:'ОСНОВЫ',time:'6 МИН',title:'Как выбрать блок питания для своей сборки',summary:'Разбираемся в мощности, сертификатах эффективности и запасе для апгрейда.',body:'Начните с энергопотребления процессора и видеокарты — именно они формируют основную нагрузку. Добавьте запас 25–30%: блок питания будет работать тише и останется место для будущего обновления. Сертификат 80 PLUS помогает оценить эффективность, но сам по себе не заменяет проверку качества платформы и гарантийных условий.'},{n:'02',tag:'КОМПЛЕКТУЮЩИЕ',time:'8 МИН',title:'Intel или AMD: выбираем платформу в 2026 году',summary:'На что смотреть при выборе процессора для игр, работы и повседневных задач.',body:'Сравнивайте конкретные модели в нужных приложениях, а не только бренды. Для игр важны производительность на ядро и связка с видеокартой; для рендеринга — число ядер и время выполнения ваших задач. Учитывайте также стоимость материнской платы, охлаждения и доступный путь обновления платформы.'},{n:'03',tag:'СОВМЕСТИМОСТЬ',time:'5 МИН',title:'Собираем компьютер: что проверить перед покупкой',summary:'Короткий чек-лист по сокету, памяти, корпусу и разъёмам питания.',body:'Сверьте сокет процессора с материнской платой и тип памяти с её спецификацией. Измерьте видеокарту и кулер, затем проверьте доступное пространство корпуса. Уточните разъёмы блока питания, число M.2-слотов и необходимость обновить BIOS до установки процессора.'}]
+function InfoPage() { const [open,setOpen]=useState('01'); return <div className="content-page info-page"><div className="eyebrow"><span className="eyebrow-line"/>ЖУРНАЛ СБОРЩИКА</div><h1>Знать своё железо —<br/><span>тоже суперсила.</span></h1><p className="lead">Понятные гайды, чтобы выбирать комплектующие уверенно и собирать без сюрпризов.</p><div className="article-list">{articles.map(a=><article className="article-card" key={a.n}><button className="article-toggle" onClick={()=>setOpen(open===a.n?'':a.n)} aria-expanded={open===a.n}><span className="article-number">{a.n}</span><span className="article-content"><span className="article-meta">{a.tag} <i/> {a.time} ЧТЕНИЯ</span><strong>{a.title}</strong><span className="article-summary">{a.summary}</span></span><span className="article-open">{open===a.n?'−':'+'}</span></button>{open===a.n&&<p className="article-body">{a.body}</p>}</article>)}</div></div> }
+
+function AppRoutes({ ai }: { ai: AiStatus | null }) {
+  const path = usePath()
+  return <><Header ai={ai}/><main className="route-content min-h-[60vh]"><RouteView path={path} routes={{ '/': <HomePage/>, '/recommend': <div className="content-page mx-auto grid w-full max-w-[1280px] gap-6 px-6 py-14 md:px-[5vw] md:py-20"><RecommendPage ai={ai}/></div>, '/manual': <div className="content-page mx-auto grid w-full max-w-[1280px] gap-6 px-6 py-14 md:px-[5vw] md:py-20"><ManualPage/></div>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/></main><Footer/></>
+}
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('recommend')
   const [ai, setAi] = useState<AiStatus | null>(null)
-
-  useEffect(() => {
-    api.aiStatus().then(setAi).catch(() => setAi(null))
-  }, [])
-
-  return (
-    <>
-      <header className="topbar">
-        <span className="brand">Сборщик ПК</span>
-        <nav className="tabs" role="tablist" aria-label="Режим">
-          <button type="button" role="tab" className="tab" aria-selected={tab === 'recommend'} onClick={() => setTab('recommend')}>
-            Подбор
-          </button>
-          <button type="button" role="tab" className="tab" aria-selected={tab === 'manual'} onClick={() => setTab('manual')}>
-            Ручная сборка
-          </button>
-        </nav>
-        {ai && (
-          <span className="ai-badge">
-            {ai.enabled ? <>ИИ: <strong>{ai.model}</strong></> : 'Работает без ИИ'}
-          </span>
-        )}
-      </header>
-      {/* Обе страницы остаются смонтированными, чтобы при переключении не терялось состояние */}
-      <div className="page" hidden={tab !== 'recommend'}><RecommendPage ai={ai} /></div>
-      <div className="page" hidden={tab !== 'manual'}><ManualPage /></div>
-    </>
-  )
+  useEffect(() => { api.aiStatus().then(setAi).catch(() => setAi(null)) }, [])
+  return <Router><AppRoutes ai={ai}/></Router>
 }
