@@ -103,10 +103,13 @@ def _to_params(parsed: ParsedQuery, parts: list[Component]) -> tuple[RecommendIn
         notes.append(f"Видеокарты «{parsed.gpu_query}» нет в каталоге — подберу сам.")
     if parsed.cpu_query and cpu is None:
         notes.append(f"Процессора «{parsed.cpu_query}» нет в каталоге — подберу сам.")
+    # Разрешение имеет смысл только для игр. Модель иногда указывает его и для офиса —
+    # тогда оно попало бы в форму и всплыло бы, если пользователь переключит сценарий на игры
+    resolution = parsed.resolution if scenario == Scenario.GAMING else None
     params = RecommendIn(
         budget=parsed.budget,
         scenario=scenario,
-        resolution=parsed.resolution or Resolution.QHD,
+        resolution=resolution or Resolution.QHD,
         platform=None if cpu else parsed.platform,
         cpu_id=cpu.id if cpu else None,
         gpu_id=gpu.id if gpu else None,
