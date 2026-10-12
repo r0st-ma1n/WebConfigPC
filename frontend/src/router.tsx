@@ -27,8 +27,10 @@ export function Link({ to, children, ...props }: { to: string; children: ReactNo
   }}>{children}</a>
 }
 
-export function NavLink({ to, children, className, ...props }: { to: string; children: ReactNode; className?: string; end?: boolean }) {
-  return <Link to={to} className={className} {...props}>{children}</Link>
+export function NavLink({ to, children, className }: { to: string; children: ReactNode; className?: string; end?: boolean }) {
+  // end нужен только вызывающему коду для подсветки активного пункта — в <a> его не передаём,
+  // иначе React предупреждает о неизвестном атрибуте
+  return <Link to={to} className={className}>{children}</Link>
 }
 
 export function RouteView({ path, routes, fallback }: { path: string; routes: Record<string, ReactNode>; fallback: ReactNode }) {
