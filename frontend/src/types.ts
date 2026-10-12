@@ -90,3 +90,9 @@ export interface ParseResult {
   source: 'llm' | 'rules'
   notes: string
 }
+
+export type AppRoute = '/' | '/recommend' | '/manual' | '/info'
+export interface NavigationItem { path: AppRoute; label: string }
+export interface PresetBuild { name: string; audience: string; startingPrice: number; route: AppRoute }
+export interface KnowledgeArticle { id: string; category: string; title: string; summary: string; body: string; readingMinutes: number }
+export interface RecommendationFormState { text: string; params: RecommendParams }
