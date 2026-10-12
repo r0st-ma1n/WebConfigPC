@@ -244,8 +244,10 @@ export function RecommendPage({ ai }: { ai: AiStatus | null }) {
             </section>
           )}
 
-          {result && current && (
-            <div className="results" style={{ opacity: loading === 'recommend' ? 0.5 : 1 }}>
+          {loading === 'recommend' && <section className="panel result-skeleton" aria-label="Подбираем конфигурацию" aria-busy="true"><span/><span/><span/><span/><span/><span/></section>}
+
+          {result && current && loading !== 'recommend' && (
+            <div className="results">
               <div className="tiers" role="group" aria-label="Варианты сборки">
                 {recs.map((r, i) => (
                   <button key={r.tier} type="button" className="tier" aria-pressed={selected === i} onClick={() => setSelected(i)}>
