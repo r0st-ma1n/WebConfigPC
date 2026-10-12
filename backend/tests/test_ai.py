@@ -225,7 +225,7 @@ class FakeCompletions:
         self.accepted, self.answer = accepted, answer
         self.formats = []
 
-    def create(self, model, messages, temperature=None, response_format=None, stream=False):
+    def create(self, model, messages, temperature=None, response_format=None, stream=False, timeout=None):
         import httpx
         import openai
         if stream:  # ответ кусками по словам, как приходят чанки от API
@@ -332,3 +332,98 @@ def test_ndjson_closes_generator_when_client_leaves():
 
     assert asyncio.run(client()) == '{"delta": "0"}\n'
     assert closed.wait(timeout=5)
+
+
+# ---------- Таймауты OpenAI-совместимого провайдера (медленный поддельный сервер) ----------
+
+@pytest.fixture
+def slow_server(monkeypatch):
+    """OpenAI-совместимый сервер с задержками до ответа и между кусками потока.
+    Таймауты провайдера уменьшены до 0,5 с, чтобы тест шёл быстро."""
+    import threading
+    import time
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    import openai
+
+    from app.ai import openai_provider
+
+    for name in ("PARSE_TIMEOUT", "TEXT_TIMEOUT", "STREAM_TIMEOUT"):
+        monkeypatch.setattr(openai_provider, name, openai.Timeout(0.5, connect=0.5))
+    # reject_json_object — отвечать 400 на json_object, как LM Studio
+    state = {"first": 0.0, "gap": 0.0, "requests": 0, "reject_json_object": False}
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            state["requests"] += 1
+            time.sleep(state["first"])
+            try:
+                if state["reject_json_object"] and body.get("response_format", {}).get("type") == "json_object":
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "response_format.type must be json_schema"}')
+                elif body.get("stream"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.end_headers()
+                    for i, word in enumerate(["раз ", "два"]):
+                        time.sleep(state["gap"] if i else 0)
+                        chunk = {"choices": [{"index": 0, "delta": {"content": word}}]}
+                        self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+                        self.wfile.flush()
+                    self.wfile.write(b"data: [DONE]\n\n")
+                else:
+                    data = json.dumps({"id": "x", "object": "chat.completion", "created": 0, "model": "m", "choices": [
+                        {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "ответ"}}]})
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(data.encode())
+            except OSError:  # клиент уже ушёл по таймауту
+                pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    provider = openai_provider.OpenAICompatibleProvider("x", "m", f"http://127.0.0.1:{server.server_address[1]}/v1")
+    yield provider, state
+    server.shutdown()
+
+
+def test_slow_answer_times_out_without_retry(slow_server):
+    provider, state = slow_server
+    state["first"] = 1.0
+    with pytest.raises(LLMError, match="не ответила"):
+        provider.generate_text("sys", "q")
+    assert state["requests"] == 1  # без повтора: локальной модели не приходится считать дважды
+
+
+def test_stream_waits_per_chunk_not_whole_answer(slow_server):
+    provider, state = slow_server
+    state["gap"] = 0.3  # весь ответ дольше таймаута, но каждая пауза короче
+    assert "".join(provider.stream_text("sys", "q")) == "раз два"
+
+
+def test_stream_silence_is_llm_error(slow_server):
+    provider, state = slow_server
+    state["gap"] = 1.0
+    with pytest.raises(LLMError, match="молчала"):
+        list(provider.stream_text("sys", "q"))
+    assert state["requests"] == 1
+
+
+def test_parse_time_limit_covers_all_format_attempts(slow_server):
+    import time
+
+    provider, state = slow_server
+    state["reject_json_object"], state["first"] = True, 0.35  # отказ в формате приходит через 0,35 с
+    start = time.monotonic()
+    with pytest.raises(LLMError, match="не ответила"):
+        provider.generate_json("sys", "q", {"type": "object"})
+    # Вторая попытка получила только остаток лимита 0,5 с, а не ещё 0,5 с
+    assert time.monotonic() - start < 0.6
+    assert state["requests"] == 2
