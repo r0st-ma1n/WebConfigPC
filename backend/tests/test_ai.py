@@ -115,6 +115,17 @@ def test_llm_answer_is_used(use_provider):
     assert provider.prompts == ["что-то сложное про игры"]
 
 
+def test_llm_resolution_ignored_outside_games(use_provider):
+    use_provider(FakeProvider(json_answer={
+        "budget": 50_000, "scenario": "office", "resolution": "4k", "platform": "intel",
+        "gpu_query": None, "cpu_query": None, "notes": "ok",
+    }))
+    params, source, notes = service.parse_request("комп для учёбы до 50к на интеле", CATALOG)
+    assert source == "llm"
+    assert params.resolution == Resolution.QHD  # значение по умолчанию, а не выдумка модели
+    assert "разрешение" not in notes
+
+
 def test_invalid_llm_answer_falls_back_to_rules(use_provider):
     use_provider(FakeProvider(json_answer={"budget": "много", "scenario": "майнинг"}))
     params, source, _ = service.parse_request("офисный пк за 40000", CATALOG)
