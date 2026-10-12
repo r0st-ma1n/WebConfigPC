@@ -13,3 +13,6 @@ frontend/dist/
 
 # IDE
 .idea/
+
+# Примеры чужих курсовых (персональные данные) — не публиковать
+ExamplesOfOtchet/
