@@ -214,7 +214,7 @@ class FakeCompletions:
         self.accepted, self.answer = accepted, answer
         self.formats = []
 
-    def create(self, model, messages, response_format=None, stream=False):
+    def create(self, model, messages, temperature=None, response_format=None, stream=False):
         import httpx
         import openai
         if stream:  # ответ кусками по словам, как приходят чанки от API
@@ -269,13 +269,34 @@ def test_openai_empty_stream_is_llm_error():
         list(provider.stream_text("sys", "q"))
 
 
-def test_explain_prompt_is_compact():
-    prompt = service._explain_prompt({**FACTS, "warnings": [], "gpu": None})
-    data = json.loads(prompt.split("\n", 1)[1])
+def prompt_data(facts: dict) -> dict:
+    prompt = service._explain_prompt(facts)
+    body = prompt.split("\n", 1)[1]
+    assert "\n" not in body  # компактный JSON, без отступов
+    return json.loads(body)
+
+
+def test_explain_prompt_is_readable_for_model():
+    data = prompt_data(FACTS)  # офисная сборка без видеокарты, без доплат и предупреждений
     assert "tier" not in data and "score" not in data  # служебные поля модели не нужны
-    assert "warnings" not in data and "gpu" not in data  # пустые тоже
-    assert data["cpu"]["title"] == "AMD Ryzen 5 7600"
-    assert "\n" not in prompt.split("\n", 1)[1]  # без отступов
+    assert data["процессор"].startswith("AMD Ryzen 5 7600: 6 ядер")
+    assert "встроенная графика" in data["видеокарта"]
+    assert data["предупреждения"] == "нет"  # явно, иначе модель придумывает предупреждения
+    assert data["экономия"] == "нет" and data["доплата"] == "нет"
+    assert data["цена и бюджет"] == "в пределах бюджета"  # без суммы остатка — её путали с экономией
+    assert "разрешение" not in data and "баланс в играх" not in data  # не игровая сборка
+
+
+def test_explain_prompt_gaming_and_upgrades():
+    data = prompt_data({
+        **FACTS, "scenario": "gaming", "resolution": "1440p", "gaming_limiter": "gpu", "over_budget_rub": 3000,
+        "upgrades": [{"text": "SSD 2 ТБ: +4 000 ₽", "worth_it": True}, {"text": "CPU: +20 000 ₽", "worth_it": False}],
+    })
+    assert data["разрешение"] == "1440p (2560×1440)"
+    assert data["баланс в играх"].startswith("скорость в играх ограничивает видеокарта")
+    assert data["цена и бюджет"] == f"дороже бюджета на {service.format_rub(3000)}"
+    assert data["доплата"] == ["SSD 2 ТБ: +4 000 ₽"]
+    assert data["доплата не стоит своих денег"] == ["CPU: +20 000 ₽"]
 
 
 def test_ndjson_closes_generator_when_client_leaves():

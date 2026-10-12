@@ -9,6 +9,10 @@ import openai
 
 from app.ai.base import LLMError
 
+# Низкая температура: модель пересказывает факты, а не сочиняет — меньше выдуманных деталей.
+# (У Anthropic параметра нет: текущие модели Claude не принимают temperature.)
+TEMPERATURE = 0.3
+
 # Способы запросить JSON, от самого простого к самому совместимому. Разные API поддерживают разное:
 # OpenAI и Ollama принимают json_object, LM Studio — только json_schema, а кто-то не знает ни того, ни другого
 JSON_FORMATS = ("json_object", "json_schema", "none")
@@ -51,6 +55,7 @@ class OpenAICompatibleProvider:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
+                temperature=TEMPERATURE,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                 response_format=response_format,
             )
@@ -86,6 +91,7 @@ class OpenAICompatibleProvider:
         try:
             stream = self.client.chat.completions.create(
                 model=self.model,
+                temperature=TEMPERATURE,
                 messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
                 stream=True,
             )
