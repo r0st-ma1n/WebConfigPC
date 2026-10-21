@@ -7,10 +7,10 @@
 import argparse
 from collections import Counter
 
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, select
 
 from app.db import SessionLocal
-from app.models import Component
+from app.models import Component, SavedBuild
 from app.seed import load_catalog
 
 
@@ -24,6 +24,11 @@ def main() -> None:
         if args.if_empty and session.scalar(select(exists().select_from(Component))):
             print("База уже заполнена, пропускаю")
             return
+        # Сохранённые сборки ссылаются на детали (RESTRICT), а у новых деталей будут новые id
+        removed = session.scalar(select(func.count()).select_from(SavedBuild))
+        session.execute(delete(SavedBuild))
+        if removed:
+            print(f"Удалено сохранённых сборок: {removed}")
         # Строки дочерних таблиц удалятся каскадно (ondelete="CASCADE")
         session.execute(delete(Component))
         session.add_all(parts)

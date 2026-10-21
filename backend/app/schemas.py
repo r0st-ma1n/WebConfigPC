@@ -1,4 +1,6 @@
 """Pydantic-схемы запросов и ответов API."""
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from app.balance import Resolution
@@ -6,7 +8,7 @@ from app.compatibility import CheckResult, Issue
 from app.models import Category, Component
 from app.recommender import Recommendation, RecommendRequest
 from app.recommender.alternatives import Alternative
-from app.recommender.params import Platform, Scenario
+from app.recommender.params import Platform, Scenario, Tier
 
 # ---------- Комплектующие ----------
 
@@ -191,3 +193,24 @@ class ExplainIn(RecommendIn):
 class ExplainOut(BaseModel):
     text: str
     source: str  # "llm" или "template"
+
+
+# ---------- Сохранённые сборки ----------
+
+
+class SaveBuildIn(RecommendIn):
+    """Сборка и параметры подбора, с которыми её открыть по ссылке."""
+    part_ids: list[int] = Field(min_length=1, max_length=16)
+    tier: Tier | None = None
+
+
+class SaveBuildOut(BaseModel):
+    slug: str  # код для ссылки /b/<slug>
+
+
+class SavedBuildOut(BaseModel):
+    slug: str
+    created_at: datetime
+    params: RecommendIn
+    saved_price: int  # цена сборки на момент сохранения
+    recommendation: RecommendationOut  # оценка по текущим ценам
