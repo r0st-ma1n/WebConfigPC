@@ -1,3 +1,5 @@
+# Всё приложение: docker compose up -d --build  ->  http://localhost:8090
+# Только база для локальной разработки: docker compose up -d db
 services:
   db:
     image: postgres:17
@@ -16,6 +18,40 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pcbuilder-backend
+    restart: unless-stopped
+    # Настройки LLM берутся из .env; адрес базы — внутри сети Compose, а не localhost
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # Локальная модель на хосте (LM Studio, Ollama) доступна как http://host.docker.internal:<порт>
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  frontend:
+    build: frontend
+    container_name: pcbuilder-frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8090}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

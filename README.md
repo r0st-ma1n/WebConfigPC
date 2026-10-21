@@ -1,5 +1,7 @@
 # Веб-конфигуратор сборки ПК с рекомендательной системой
 
+[![CI](https://github.com/r0st-ma1n/WebConfigPC/actions/workflows/ci.yml/badge.svg)](https://github.com/r0st-ma1n/WebConfigPC/actions/workflows/ci.yml)
+
 Учебный проект. Пользователь описывает задачи и бюджет, а система:
 
 - подбирает 2–3 совместимые сборки: «Дешевле», «Оптимальная», «С запасом»;
@@ -18,9 +20,23 @@
 | База данных | PostgreSQL 17 в Docker Compose |
 | Фронтенд | React 19, TypeScript, Vite |
 | ИИ (необязательно) | Anthropic Claude или любой OpenAI-совместимый API |
-| Тесты | pytest |
+| Тесты и качество | pytest, ruff, mypy, oxlint, GitHub Actions |
+| Запуск | Docker Compose: PostgreSQL, бэкенд (uvicorn), фронтенд (nginx) |
 
-## Запуск
+## Быстрый запуск (Docker)
+
+Нужен только Docker с Docker Compose.
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+Приложение откроется на http://localhost:8090 (порт меняется переменной `APP_PORT`).
+При старте бэкенд применяет миграции и заполняет пустую базу тестовыми данными.
+nginx раздаёт собранный фронтенд и проксирует `/api` на бэкенд.
+
+## Запуск для разработки
 
 Нужны: Python 3.14 и [uv](https://docs.astral.sh/uv/), Docker с Docker Compose, Node.js 20+.
 
@@ -28,8 +44,8 @@
 # 1. Настройки окружения
 cp .env.example .env
 
-# 2. База данных (PostgreSQL в Docker, порт на хосте 5433)
-docker compose up -d
+# 2. Только база данных (PostgreSQL в Docker, порт на хосте 5433)
+docker compose up -d db
 
 # 3. Зависимости бэкенда
 uv sync
@@ -68,11 +84,22 @@ LLM_BASE_URL=https://адрес-api/v1   # для OpenAI можно не ука�
 
 После изменения `.env` перезапустите бэкенд. Статус виден в правом верхнем углу интерфейса.
 
-## Тесты
+Если бэкенд запущен в Docker, а модель — на этом же компьютере (LM Studio, Ollama),
+в `LLM_BASE_URL` вместо `localhost` укажите `host.docker.internal`, например
+`http://host.docker.internal:1234/v1`.
+
+## Тесты и проверки
 
 ```bash
-uv run pytest
+uv run pytest                     # тесты
+uv run ruff check backend         # линтер
+cd backend && uv run mypy         # проверка типов
+cd frontend && npm run lint && npm test && npm run build
 ```
+
+Те же проверки запускает GitHub Actions на каждый push и pull request
+(`.github/workflows/ci.yml`). В CI тесты идут с настоящим PostgreSQL, а в конце
+собирается и запускается весь стек в Docker и проверяется подбор через nginx.
 
 Тесты не требуют запущенной базы: модули совместимости и подбора работают с объектами
 в памяти, а API-тесты подменяют загрузку каталога данными из JSON. Единственный тест,
