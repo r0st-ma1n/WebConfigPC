@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pcbuilder
+          POSTGRES_PASSWORD: pcbuilder
+          POSTGRES_DB: pcbuilder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pcbuilder"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://pcbuilder:pcbuilder@localhost:5432/pcbuilder
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Ruff
+        run: uv run ruff check backend
+      - name: Mypy
+        run: uv run mypy
+        working-directory: backend
+      # Миграции и сид на чистой базе: тест загрузки из PostgreSQL в CI не пропускается
+      - name: Migrations and seed
+        run: |
+          uv run alembic upgrade head
+          uv run python -m app.seed
+        working-directory: backend
+      - name: Tests
+        run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Type check and build
+        run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and start the stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait
+      - name: Smoke test
+        run: |
+          curl -fsS http://localhost:8090/api/health
+          curl -fsS -X POST http://localhost:8090/api/recommend \
+            -H 'Content-Type: application/json' \
+            -d '{"budget": 120000, "scenario": "gaming", "resolution": "1440p"}' > /dev/null
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
