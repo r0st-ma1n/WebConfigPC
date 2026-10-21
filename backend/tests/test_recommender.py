@@ -1,5 +1,6 @@
 """Тесты рекомендательной системы на реальном тестовом каталоге (без базы данных)."""
 import itertools
+from dataclasses import FrozenInstanceError
 from functools import cache
 
 import pytest
@@ -9,7 +10,7 @@ from app.compatibility import check_build
 from app.models import Category
 from app.recommender import RecommendError, RecommendRequest, Scenario, Tier, recommend
 from app.recommender.budget import budget_shares
-from app.recommender.builder import AVOIDED_WARNINGS, BuildSearch, Catalog
+from app.recommender.builder import AVOIDED_WARNINGS, BuildSearch, Catalog, pick
 from app.recommender.params import MIN_VRAM_GB, TIER_BUDGET_FACTOR, Platform
 from app.recommender.scoring import gaming_metric, ram_metric, score
 from app.seed import load_catalog
@@ -245,3 +246,25 @@ def test_facts_are_json_serializable():
     import json
     for rec in run(120_000, Scenario.GAMING).recommendations:
         json.dumps(rec.facts, ensure_ascii=False)
+
+
+# ---------- Сборка и выбор детали (на них опираются кэши подбора) ----------
+
+
+def test_build_is_immutable_and_with_part_returns_new_build():
+    build = f.full_build()
+    price = build.total_price
+    with pytest.raises(FrozenInstanceError):
+        build.gpu = None  # type: ignore[misc]
+    pricier = build.with_part(f.gpu(price_rub=90_000))
+    assert build.total_price == price  # исходная сборка и её закэшированная цена не изменились
+    assert pricier.total_price == price - 10_000 + 90_000
+    assert pricier.key != build.key
+
+
+def test_pick_without_limit_takes_best_of_cheapest():
+    cheap_weak, cheap_strong, pricey = f.ram(price_rub=5000), f.ram(price_rub=5000), f.ram(price_rub=9000)
+    value = {cheap_weak.id: 1, cheap_strong.id: 2, pricey.id: 10}
+    assert pick([cheap_weak, cheap_strong, pricey], None, lambda r: value[r.id]) is cheap_strong
+    # Укладывается в лимит — берётся самая полезная
+    assert pick([cheap_weak, cheap_strong, pricey], 10_000, lambda r: value[r.id]) is pricey

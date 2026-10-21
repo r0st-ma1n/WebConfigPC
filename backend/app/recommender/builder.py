@@ -83,7 +83,9 @@ def pick[T: Component](options: list[T], limit: int | None, value: Callable[[T],
         affordable = [o for o in options if o.price_rub <= limit]
         if affordable:
             return max(affordable, key=lambda o: (round(value(o), 2), -o.price_rub))
-    return min(options, key=lambda o: (o.price_rub, -value(o)))
+    # Польза нужна только, чтобы выбрать из самых дешёвых: считаем её не для всех вариантов
+    cheapest = min(o.price_rub for o in options)
+    return max((o for o in options if o.price_rub == cheapest), key=value)
 
 
 class BuildSearch:
@@ -91,11 +93,18 @@ class BuildSearch:
         self.catalog = catalog
         self.request = request
         self._options_cache: dict[tuple, list[Component]] = {}
+        # Оценка и проверка зависят только от состава сборки, а одни и те же сборки
+        # встречаются много раз: в каждом из трёх вариантов, при докупке и при поиске замен
+        self._score_cache: dict[tuple[int, ...], float] = {}
+        self._valid_cache: dict[tuple[int, ...], bool] = {}
 
     # ---------- Оценка и требования ----------
 
     def score(self, build: Build) -> float:
-        return score(build, self.request)
+        key = build.key
+        if (value := self._score_cache.get(key)) is None:
+            value = self._score_cache[key] = score(build, self.request)
+        return value
 
     def tier_value(self, build: Build, tier: Tier) -> float:
         """Значение, по которому выбирается лучшая сборка варианта."""
@@ -119,6 +128,12 @@ class BuildSearch:
 
     def is_valid(self, build: Build) -> bool:
         """Сборка совместима и отвечает требованиям сценария."""
+        key = build.key
+        if (valid := self._valid_cache.get(key)) is None:
+            valid = self._valid_cache[key] = self._check_valid(build)
+        return valid
+
+    def _check_valid(self, build: Build) -> bool:
         # Баланс CPU/GPU здесь не проверяется: он учитывается в оценке сборки
         result = check_build(build, complete=True, balance_resolution=None)
         if not result.is_compatible or any(w.code in AVOIDED_WARNINGS for w in result.warnings):
