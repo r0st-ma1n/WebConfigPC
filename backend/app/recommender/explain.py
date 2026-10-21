@@ -32,6 +32,8 @@ def build_facts(request: RecommendRequest, tier: Tier | None, build: Build, brea
 
     limit = round(request.budget * TIER_BUDGET_FACTOR[tier]) if tier else request.budget
     cpu, gpu, ram, psu = build.cpu, build.gpu, build.ram, build.psu
+    # Неполные сборки отсекаются раньше (evaluate_build, подбор), здесь все слоты заполнены
+    assert cpu is not None and ram is not None and psu is not None
     storage = build.storages[0]
     return {
         "variant": TIER_TITLES[tier] if tier else "Ваша сборка",

@@ -1,4 +1,5 @@
 """Тесты рекомендательной системы на реальном тестовом каталоге (без базы данных)."""
+import itertools
 from functools import cache
 
 import pytest
@@ -9,7 +10,7 @@ from app.models import Category
 from app.recommender import RecommendError, RecommendRequest, Scenario, Tier, recommend
 from app.recommender.budget import budget_shares
 from app.recommender.builder import AVOIDED_WARNINGS, BuildSearch, Catalog
-from app.recommender.params import TIER_BUDGET_FACTOR, MIN_VRAM_GB, Platform
+from app.recommender.params import MIN_VRAM_GB, TIER_BUDGET_FACTOR, Platform
 from app.recommender.scoring import gaming_metric, ram_metric, score
 from app.seed import load_catalog
 from tests import factories as f
@@ -78,7 +79,8 @@ def test_extra_ram_is_useless_for_gaming_but_useful_for_workstation():
 
 def test_single_channel_ram_penalized_more_with_igpu():
     single, dual = f.ram(capacity_gb=16, modules=1), f.ram(capacity_gb=16, modules=2)
-    with_gpu = ram_metric(f.full_build(ram=dual), Scenario.OFFICE) - ram_metric(f.full_build(ram=single), Scenario.OFFICE)
+    with_gpu = (ram_metric(f.full_build(ram=dual), Scenario.OFFICE)
+                - ram_metric(f.full_build(ram=single), Scenario.OFFICE))
     igpu = (ram_metric(f.full_build(ram=dual, gpu=None), Scenario.OFFICE)
             - ram_metric(f.full_build(ram=single, gpu=None), Scenario.OFFICE))
     assert igpu > with_gpu > 0
@@ -100,7 +102,7 @@ def test_builds_are_compatible_and_within_tier_limits(budget, scenario, resoluti
 @pytest.mark.parametrize(("budget", "scenario", "resolution"), TYPICAL_REQUESTS)
 def test_more_expensive_tier_is_better(budget, scenario, resolution):
     recs = run(budget, scenario, resolution).recommendations
-    for cheaper, pricier in zip(recs, recs[1:]):
+    for cheaper, pricier in itertools.pairwise(recs):
         assert pricier.build.total_price > cheaper.build.total_price
         assert pricier.score >= cheaper.score
 

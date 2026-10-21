@@ -12,6 +12,7 @@
 «Доплатить» — замены с приростом не меньше 2%, лучшие по приросту на рубль.
 «Сэкономить» — замены, которые экономят деньги и снижают оценку не больше чем на 3%.
 """
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.domain import Build
@@ -106,7 +107,7 @@ def _is_pinned(search: BuildSearch, part: Component) -> bool:
     return part.id in (search.request.cpu_id, search.request.gpu_id)
 
 
-def _candidates(search: BuildSearch, category: Category) -> list[Component]:
+def _candidates(search: BuildSearch, category: Category) -> Sequence[Component]:
     # Для процессоров учитываются предпочтения пользователя (платформа, встроенная графика)
     if category == C.CPU:
         return search.cpu_options()

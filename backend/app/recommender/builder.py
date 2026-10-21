@@ -17,14 +17,20 @@
    по оценке меньше чем на 1%, берётся самая дешёвая.
 """
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from typing import cast
 
 from app.compatibility import check_build, recommended_psu_w
 from app.domain import Build
-from app.models import Category, Component, Cooler, Cpu, Gpu, Psu, Storage
+from app.models import Case, Category, Component, Cooler, Cpu, Gpu, Motherboard, Psu, Ram, Storage
 from app.recommender.budget import allocate_budget
 from app.recommender.params import (
-    MIN_VRAM_GB, TIER_BUDGET_FACTOR, RecommendError, RecommendRequest, Scenario, Tier,
+    MIN_VRAM_GB,
+    TIER_BUDGET_FACTOR,
+    RecommendError,
+    RecommendRequest,
+    Scenario,
+    Tier,
 )
 from app.recommender.scoring import future_proof_bonus, score
 
@@ -59,9 +65,12 @@ class Catalog:
     def of(self, category: Category) -> list[Component]:
         return self._by_category[category]
 
+    def of_kind[T: Component](self, kind: type[T]) -> list[T]:
+        """То же, что of, но с точным типом деталей: of_kind(Cpu) -> list[Cpu]."""
+        return cast(list[T], self._by_category[kind.__mapper_args__["polymorphic_identity"]])
 
-def pick(options: list[Component], limit: int | None,
-         value: Callable[[Component], float]) -> Component | None:
+
+def pick[T: Component](options: list[T], limit: int | None, value: Callable[[T], float]) -> T | None:
     """Выбор детали из совместимых вариантов.
 
     Берётся деталь с наибольшей пользой (value) среди тех, что укладываются в limit рублей;
@@ -118,7 +127,8 @@ class BuildSearch:
             return False
         if build.gpu and build.gpu.vram_gb < MIN_VRAM_GB and self.request.gpu_id is None:
             return False
-        if build.ram.capacity_gb < self.request.min_ram_gb:
+        # check_build(complete=True) уже проверил, что память и блок питания есть
+        if build.ram is None or build.psu is None or build.ram.capacity_gb < self.request.min_ram_gb:
             return False
         return self.psu_ok(build.psu) and any(self.storage_ok(s) for s in build.storages)
 
@@ -126,7 +136,7 @@ class BuildSearch:
 
     def cpu_options(self) -> list[Cpu]:
         req = self.request
-        cpus = self.catalog.of(C.CPU)
+        cpus = self.catalog.of_kind(Cpu)
         if req.cpu_id is not None:
             cpus = [c for c in cpus if c.id == req.cpu_id]
             if not cpus:
@@ -139,30 +149,30 @@ class BuildSearch:
             cpus = [c for c in cpus if c.has_igpu]
         return cpus
 
-    def gpu_options(self) -> list[Gpu | None]:
+    def gpu_options(self) -> Sequence[Gpu | None]:
         req = self.request
         if req.gpu_id is not None:
-            gpus = [g for g in self.catalog.of(C.GPU) if g.id == req.gpu_id]
+            gpus = [g for g in self.catalog.of_kind(Gpu) if g.id == req.gpu_id]
             if not gpus:
                 raise RecommendError("Выбранная видеокарта не найдена в каталоге.")
             return gpus
         if not self.needs_gpu():
             return [None]
-        return self.catalog.of(C.GPU)
+        return self.catalog.of_kind(Gpu)
 
     # ---------- Достройка сборки ----------
 
-    def _options(self, category: Category, context: Build,
-                 extra: Callable[[Component], bool] = lambda _: True) -> list[Component]:
+    def _options[T: Component](self, kind: type[T], context: Build,
+                               extra: Callable[[T], bool] = lambda _: True) -> list[T]:
         """Детали категории, совместимые с context. Результат кэшируется:
         например, платы для одного процессора ищутся один раз, а не для каждой видеокарты."""
-        key = (category, tuple(context.part_ids))
+        key = (kind, tuple(context.part_ids))
         if key not in self._options_cache:
             self._options_cache[key] = [
-                c for c in self.catalog.of(category)
+                c for c in self.catalog.of_kind(kind)
                 if extra(c) and not check_build(context.with_part(c), balance_resolution=None).errors
             ]
-        return self._options_cache[key]
+        return cast(list[T], self._options_cache[key])
 
     def complete(self, cpu: Cpu, gpu: Gpu | None, allocation: dict[Category, int] | None) -> Build | None:
         """Достраивает пару (CPU, GPU) до полной сборки.
@@ -173,37 +183,37 @@ class BuildSearch:
         """
         build = Build(cpu=cpu, gpu=gpu)
 
-        def choose(category: Category, options: list[Component]) -> Component | None:
+        def choose[T: Component](category: Category, options: list[T]) -> T | None:
             limit = allocation[category] if allocation else None
             return pick(options, limit, lambda part: self.score(build.replace_part(part)))
 
-        board = choose(C.MOTHERBOARD, self._options(C.MOTHERBOARD, Build(cpu=cpu)))
+        board = choose(C.MOTHERBOARD, self._options(Motherboard, Build(cpu=cpu)))
         if board is None:
             return None
         build = build.with_part(board)
 
         min_ram = self.request.min_ram_gb
-        ram = choose(C.RAM, self._options(C.RAM, Build(cpu=cpu, motherboard=board),
+        ram = choose(C.RAM, self._options(Ram, Build(cpu=cpu, motherboard=board),
                                           lambda r: r.capacity_gb >= min_ram))
-        storage = choose(C.STORAGE, self._options(C.STORAGE, Build(motherboard=board), self.storage_ok))
+        storage = choose(C.STORAGE, self._options(Storage, Build(motherboard=board), self.storage_ok))
         if ram is None or storage is None:
             return None
         build = build.with_part(ram).with_part(storage)
 
         if not cpu.includes_cooler:
-            cooler = choose(C.COOLER, self._options(C.COOLER, Build(cpu=cpu),
+            cooler = choose(C.COOLER, self._options(Cooler, Build(cpu=cpu),
                                                     lambda c: c.max_tdp_w >= cpu.power_w))
             if cooler is None:
                 return None
             build = build.with_part(cooler)
 
-        case = choose(C.CASE, self._options(C.CASE, Build(motherboard=board, gpu=gpu, cooler=build.cooler)))
+        case = choose(C.CASE, self._options(Case, Build(motherboard=board, gpu=gpu, cooler=build.cooler)))
         if case is None:
             return None
         build = build.with_part(case)
 
         need_w = recommended_psu_w(build)
-        psu = choose(C.PSU, [p for p in self.catalog.of(C.PSU) if p.wattage >= need_w and self.psu_ok(p)])
+        psu = choose(C.PSU, [p for p in self.catalog.of_kind(Psu) if p.wattage >= need_w and self.psu_ok(p)])
         if psu is None:
             return None
         build = build.with_part(psu)
@@ -263,12 +273,12 @@ class BuildSearch:
         bad = result.errors + [w for w in result.warnings if w.code in AVOIDED_WARNINGS]
         if any(part.id in issue.part_ids for issue in bad):
             return False
-        match category:
-            case C.RAM:
+        match part:
+            case Ram():
                 return part.capacity_gb >= self.request.min_ram_gb
-            case C.STORAGE:
+            case Storage():
                 return self.storage_ok(part)
-            case C.PSU:
+            case Psu():
                 return part.wattage >= recommended_psu_w(build) and self.psu_ok(part)
         return True
 
@@ -298,6 +308,7 @@ class BuildSearch:
             for b_min in minimal:
                 if b_min.total_price > limit:
                     continue
+                assert b_min.cpu is not None  # минимальные сборки собраны из пары (CPU, GPU)
                 b = self.complete(b_min.cpu, b_min.gpu, allocation)
                 candidates.append(b if b is not None and b.total_price <= limit else b_min)
             if not candidates:

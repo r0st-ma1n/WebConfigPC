@@ -27,12 +27,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # папка backend
 
-from app.ai.factory import get_provider  # noqa: E402
-from app.ai.service import EXPLAIN_SYSTEM, _explain_prompt  # noqa: E402
-from app.balance import Resolution  # noqa: E402
-from app.recommender import recommend  # noqa: E402
-from app.recommender.params import RecommendRequest, Scenario, Tier  # noqa: E402
-from app.seed import load_catalog  # noqa: E402
+from app.ai.factory import get_provider
+from app.ai.service import EXPLAIN_SYSTEM, _explain_prompt
+from app.balance import Resolution
+from app.recommender import recommend
+from app.recommender.params import RecommendRequest, Scenario, Tier
+from app.seed import load_catalog
 
 # Сборки для оценки: все варианты игровой и оптимальные для офиса и работы
 REQUESTS = [
