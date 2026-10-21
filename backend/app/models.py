@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
 
-class Category(str, enum.Enum):
+class Category(enum.StrEnum):
     CPU = "cpu"
     GPU = "gpu"
     MOTHERBOARD = "motherboard"

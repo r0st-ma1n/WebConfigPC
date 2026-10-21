@@ -1,5 +1,6 @@
 """ИИ: статус, разбор свободного запроса, объяснение сборки."""
 import asyncio
+import contextlib
 import json
 import logging
 import threading
@@ -69,10 +70,9 @@ async def _ndjson(events: Generator[dict]) -> AsyncIterator[str]:
     stop = threading.Event()
 
     def put(item: dict | None) -> None:
-        try:
+        # RuntimeError: цикл событий уже закрыт — сервер останавливается
+        with contextlib.suppress(RuntimeError):
             loop.call_soon_threadsafe(queue.put_nowait, item)
-        except RuntimeError:  # цикл событий уже закрыт — сервер останавливается
-            pass
 
     def pump() -> None:
         try:
