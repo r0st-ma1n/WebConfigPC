@@ -24,5 +24,7 @@ USER app
 WORKDIR /app/backend
 EXPOSE 8000
 
-# Миграции и начальные данные при каждом старте: оба шага идемпотентны
-CMD ["sh", "-c", "alembic upgrade head && python -m app.seed --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+# Миграции и начальные данные при каждом старте: оба шага идемпотентны.
+# Бэкенд доступен только из сети Compose, поэтому IP клиента из X-Forwarded-For (от nginx)
+# можно принимать от любого адреса. Журнал запросов пишет само приложение (с request-id).
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=* --no-access-log"]
