@@ -3,7 +3,12 @@ from dataclasses import dataclass
 
 from app.balance import Resolution
 from app.compatibility.rules import (
-    COMPLETE_BUILD_RULES, RULES, Issue, Level, cpu_gpu_balance, recommended_psu_w,
+    COMPLETE_BUILD_RULES,
+    RULES,
+    Issue,
+    Level,
+    cpu_gpu_balance,
+    recommended_psu_w,
 )
 from app.domain import Build
 from app.models import Component

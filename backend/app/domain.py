@@ -32,28 +32,29 @@ class Build:
     cooler: Cooler | None = None
 
     @classmethod
-    def from_parts(cls, parts: list[Component]) -> "Build":
+    def from_parts(cls, parts: list[Component]) -> Build:
         """Раскладывает список деталей по слотам сборки."""
         build = cls()
         for part in parts:
             build = build.with_part(part)
         return build
 
-    def with_part(self, part: Component) -> "Build":
+    def with_part(self, part: Component) -> Build:
         """Новая сборка, в которой деталь поставлена в свой слот.
 
         Исходная сборка не меняется: это удобно при переборе вариантов.
         Накопитель добавляется к уже выбранным, остальные детали заменяют прежние.
         """
-        slot = SLOT_BY_CATEGORY[part.category]
-        if slot == "storages":
+        if isinstance(part, Storage):
             return replace(self, storages=[*self.storages, part])
-        return replace(self, **{slot: part})
+        build = replace(self)
+        setattr(build, SLOT_BY_CATEGORY[part.category], part)
+        return build
 
-    def replace_part(self, part: Component) -> "Build":
+    def replace_part(self, part: Component) -> Build:
         """Как with_part, но накопитель заменяет все прежние (сборки из подбора
         содержат один накопитель). Используется при поиске замен."""
-        if part.category == Category.STORAGE:
+        if isinstance(part, Storage):
             return replace(self, storages=[part])
         return self.with_part(part)
 

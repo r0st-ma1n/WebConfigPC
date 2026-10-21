@@ -86,13 +86,15 @@ class OpenAICompatibleProvider:
         # а ответ в любом случае проверяется Pydantic-моделью в service.py
         system = f"{system}\n\nОтветь только JSON по этой JSON-схеме:\n{json.dumps(schema, ensure_ascii=False)}"
         # Лимит общий на все попытки: после отказа в формате следующая попытка получает только остаток
-        deadline = time.monotonic() + PARSE_TIMEOUT.read
+        limit, connect = PARSE_TIMEOUT.read, PARSE_TIMEOUT.connect
+        assert limit is not None and connect is not None  # оба лимита заданы в PARSE_TIMEOUT
+        deadline = time.monotonic() + limit
         while True:
             kind = JSON_FORMATS[self._json_format]
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise LLMError(f"Модель не ответила за {PARSE_TIMEOUT.read:.0f} с")
-            timeout = openai.Timeout(remaining, connect=min(PARSE_TIMEOUT.connect, remaining))
+            timeout = openai.Timeout(remaining, connect=min(connect, remaining))
             try:
                 return _extract_json(self._chat(system, prompt, timeout, _response_format(kind, schema)))
             except LLMError as e:

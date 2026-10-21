@@ -15,7 +15,12 @@ from app.recommender.budget import allocate_budget
 from app.recommender.builder import BuildSearch, Catalog
 from app.recommender.explain import build_facts, template_explanation
 from app.recommender.params import (
-    TIER_TITLES, Platform, RecommendError, RecommendRequest, Scenario, Tier,
+    TIER_TITLES,
+    Platform,
+    RecommendError,
+    RecommendRequest,
+    Scenario,
+    Tier,
 )
 from app.recommender.scoring import ScoreBreakdown, score_breakdown
 
