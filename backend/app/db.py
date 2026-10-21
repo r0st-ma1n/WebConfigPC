@@ -6,7 +6,8 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
-engine = create_engine(settings.database_url)
+# Без connect_timeout подключение к недоступной базе может висеть минутами
+engine = create_engine(settings.database_url, connect_args={"connect_timeout": 5})
 
 # expire_on_commit=False: объекты остаются читаемыми после закрытия сессии.
 # Это нужно, потому что модули совместимости и подбора работают с уже загруженными деталями.
