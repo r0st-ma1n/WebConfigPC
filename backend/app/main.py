@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api import ai, components, recommend
+from app.api import ai, builds, components, recommend
 from app.config import settings
 from app.db import get_session
 from app.observability import RequestContextMiddleware, setup_logging
@@ -37,6 +37,7 @@ app.add_middleware(RequestContextMiddleware)
 app.include_router(components.router)
 app.include_router(recommend.router)
 app.include_router(ai.router)
+app.include_router(builds.router)
 
 
 @app.exception_handler(RecommendError)

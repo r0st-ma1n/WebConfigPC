@@ -376,3 +376,9 @@ details.more .field + .field { margin-top: 12px; }
   .part-cat { grid-column: 1 / -1; }
   .bar-row { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* ===== Сохранённые сборки ===== */
+.share-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.share-link .input { flex: 1 1 260px; min-width: 0; }
+.saved-page { display: grid; gap: 16px; }
+.saved-page h1 { margin: 0; }
