@@ -313,6 +313,7 @@ def test_explain_prompt_gaming_and_upgrades():
 def test_ndjson_closes_generator_when_client_leaves():
     import asyncio
     import threading
+
     from app.api.ai import _ndjson
 
     closed = threading.Event()

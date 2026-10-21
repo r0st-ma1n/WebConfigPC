@@ -14,7 +14,7 @@ from app.ai.base import LLMError
 from app.ai.factory import get_provider
 from app.ai.rules_parser import ParsedQuery, parse_query
 from app.balance import Resolution
-from app.models import Category, Component
+from app.models import Category, Component, Gpu
 from app.recommender.builder import format_rub
 from app.recommender.explain import template_explanation
 from app.recommender.params import SCENARIO_TITLES, Platform, Scenario
@@ -80,7 +80,7 @@ def find_part(parts: list[Component], category: Category, query: str | None) -> 
         if p.category != category:
             continue
         names = [_normalize(p.name)]
-        if category == Category.GPU:
+        if isinstance(p, Gpu):
             names.append(_normalize(p.chip))
         # «rtx5070» не должен совпадать с «rtx5070ti»: для чипа требуем точное совпадение
         if any(q == n for n in names[1:]) or (category == Category.CPU and q in names[0]):

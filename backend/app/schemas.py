@@ -24,7 +24,7 @@ class ComponentOut(BaseModel):
     specs: dict
 
     @classmethod
-    def from_model(cls, part: Component) -> "ComponentOut":
+    def from_model(cls, part: Component) -> ComponentOut:
         # Колонки дочерней таблицы (cpus, gpus, ...) кроме id — это и есть характеристики
         columns = [c.name for c in type(part).__table__.columns if c.name != "id"]
         return cls(
@@ -44,7 +44,7 @@ class IssueOut(BaseModel):
     part_ids: list[int]
 
     @classmethod
-    def from_issue(cls, issue: Issue) -> "IssueOut":
+    def from_issue(cls, issue: Issue) -> IssueOut:
         return cls(level=issue.level, code=issue.code, message=issue.message, part_ids=issue.part_ids)
 
 
@@ -63,7 +63,7 @@ class CheckOut(BaseModel):
     recommended_psu_w: int
 
     @classmethod
-    def from_result(cls, result: CheckResult) -> "CheckOut":
+    def from_result(cls, result: CheckResult) -> CheckOut:
         return cls(
             is_compatible=result.is_compatible,
             issues=[IssueOut.from_issue(i) for i in result.issues],
@@ -118,7 +118,7 @@ class AlternativeOut(BaseModel):
     part_ids: list[int]  # детали сборки после замены — чтобы применить её одним запросом
 
     @classmethod
-    def from_alt(cls, alt: Alternative) -> "AlternativeOut":
+    def from_alt(cls, alt: Alternative) -> AlternativeOut:
         return cls(
             kind=alt.kind, category=alt.category, text=alt.text, price_delta=alt.price_delta,
             score_delta_pct=alt.score_delta_pct, worth_it=alt.worth_it,
@@ -143,7 +143,7 @@ class RecommendationOut(BaseModel):
     facts: dict
 
     @classmethod
-    def from_rec(cls, rec: Recommendation) -> "RecommendationOut":
+    def from_rec(cls, rec: Recommendation) -> RecommendationOut:
         return cls(
             tier=rec.tier.value if rec.tier else None,
             title=rec.title,
