@@ -1,4 +1,5 @@
 """Подбор сборок."""
+
 from fastapi import APIRouter, Depends
 
 from app.models import Component

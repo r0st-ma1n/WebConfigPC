@@ -5,6 +5,7 @@
 - evaluate_build(parts, request, build) — оценить произвольную сборку
   (например, после того как пользователь применил замену).
 """
+
 from dataclasses import dataclass
 
 from app.compatibility import CheckResult, check_build
@@ -25,8 +26,15 @@ from app.recommender.params import (
 from app.recommender.scoring import ScoreBreakdown, score_breakdown
 
 __all__ = [
-    "Platform", "RecommendError", "RecommendRequest", "Recommendation", "RecommendationResult",
-    "Scenario", "Tier", "evaluate_build", "recommend",
+    "Platform",
+    "RecommendError",
+    "RecommendRequest",
+    "Recommendation",
+    "RecommendationResult",
+    "Scenario",
+    "Tier",
+    "evaluate_build",
+    "recommend",
 ]
 
 
@@ -66,8 +74,9 @@ def recommend(parts: list[Component], request: RecommendRequest) -> Recommendati
     )
 
 
-def evaluate_build(parts: list[Component], request: RecommendRequest, build: Build,
-                   tier: Tier | None = None) -> Recommendation:
+def evaluate_build(
+    parts: list[Component], request: RecommendRequest, build: Build, tier: Tier | None = None
+) -> Recommendation:
     """Описание произвольной сборки в том же виде, что и рекомендации."""
     require_complete(build)
     return _describe(BuildSearch(Catalog(parts), request), build, tier)
@@ -83,11 +92,11 @@ def require_complete(build: Build) -> None:
 def _describe(search: BuildSearch, build: Build, tier: Tier | None) -> Recommendation:
     request = search.request
     breakdown = score_breakdown(build, request)
-    check = check_build(build, complete=True,
-                        balance_resolution=request.resolution if request.is_gaming else None)
+    check = check_build(build, complete=True, balance_resolution=request.resolution if request.is_gaming else None)
     upgrades, savings = find_alternatives(search, build) if check.is_compatible else ([], [])
-    facts = build_facts(request, tier, build, breakdown, check,
-                        [a.as_fact() for a in upgrades], [a.as_fact() for a in savings])
+    facts = build_facts(
+        request, tier, build, breakdown, check, [a.as_fact() for a in upgrades], [a.as_fact() for a in savings]
+    )
     return Recommendation(
         tier=tier,
         title=TIER_TITLES[tier] if tier else "Ваша сборка",

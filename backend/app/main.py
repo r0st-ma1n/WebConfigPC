@@ -1,4 +1,5 @@
 """Точка входа FastAPI: uvicorn app.main:app --reload (из папки backend)."""
+
 import logging
 
 from fastapi import Depends, FastAPI, Request

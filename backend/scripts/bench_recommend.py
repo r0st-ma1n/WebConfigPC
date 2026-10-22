@@ -5,6 +5,7 @@
 
 Каждый запрос выполняется несколько раз, в таблице — медиана.
 """
+
 import argparse
 import cProfile
 import pstats

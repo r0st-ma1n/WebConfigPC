@@ -8,6 +8,7 @@
 SQLAlchemy сам делает JOIN и по полю category понимает, объект какого класса создать.
 Объекты этих классов можно создавать и без базы данных: так делают тесты.
 """
+
 import enum
 from datetime import datetime
 

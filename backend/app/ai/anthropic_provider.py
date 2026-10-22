@@ -1,4 +1,5 @@
 """Провайдер Anthropic (Claude) через официальный SDK."""
+
 import json
 import logging
 from collections.abc import Iterator

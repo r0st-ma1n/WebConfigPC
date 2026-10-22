@@ -4,6 +4,7 @@
 прокси) или новый. Идентификатор попадает во все записи лога, сделанные во время запроса,
 и возвращается клиенту в том же заголовке — по нему ошибку из интерфейса легко найти в логах.
 """
+
 import json
 import logging
 import time
@@ -46,9 +47,11 @@ class JsonFormatter(logging.Formatter):
 def setup_logging(json_format: bool, level: str = "INFO") -> None:
     handler = logging.StreamHandler()
     handler.addFilter(RequestIdFilter())
-    handler.setFormatter(JsonFormatter() if json_format else logging.Formatter(
-        "%(asctime)s %(levelname)-7s [%(request_id)s] %(name)s: %(message)s", "%H:%M:%S"
-    ))
+    handler.setFormatter(
+        JsonFormatter()
+        if json_format
+        else logging.Formatter("%(asctime)s %(levelname)-7s [%(request_id)s] %(name)s: %(message)s", "%H:%M:%S")
+    )
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
@@ -84,8 +87,15 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send_with_id)
         finally:
             log.info(
-                "%s %s %s", scope["method"], scope["path"], status,
-                extra={"method": scope["method"], "path": scope["path"], "status": status,
-                       "duration_ms": round((time.perf_counter() - start) * 1000, 1)},
+                "%s %s %s",
+                scope["method"],
+                scope["path"],
+                status,
+                extra={
+                    "method": scope["method"],
+                    "path": scope["path"],
+                    "status": status,
+                    "duration_ms": round((time.perf_counter() - start) * 1000, 1),
+                },
             )
             request_id.reset(token)

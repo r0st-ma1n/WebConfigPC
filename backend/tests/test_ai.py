@@ -1,4 +1,5 @@
 """Тесты слоя ИИ без реальных запросов к модели: провайдер подменяется фейковым."""
+
 import json
 
 import pytest
@@ -17,6 +18,7 @@ BY_NAME = {p.name: p for p in CATALOG}
 
 class FakeProvider:
     """Фейковый LLM: возвращает заранее заданный ответ или бросает ошибку."""
+
     name = "fake"
     model = "fake-model"
 
@@ -50,19 +52,24 @@ def use_provider(monkeypatch):
     def install(provider):
         monkeypatch.setattr(service, "get_provider", lambda: provider)
         return provider
+
     return install
 
 
 # ---------- Разбор правилами (без LLM) ----------
 
-@pytest.mark.parametrize(("text", "budget"), [
-    ("до 120 тысяч", 120_000),
-    ("бюджет 120к", 120_000),
-    ("за 95 000 руб", 95_000),
-    ("около 1,5 млн", 1_500_000),
-    ("на 80000", 80_000),
-    ("видеокарта RTX 5070 и 32 ГБ", None),  # 5070 и 32 — не бюджет
-])
+
+@pytest.mark.parametrize(
+    ("text", "budget"),
+    [
+        ("до 120 тысяч", 120_000),
+        ("бюджет 120к", 120_000),
+        ("за 95 000 руб", 95_000),
+        ("около 1,5 млн", 1_500_000),
+        ("на 80000", 80_000),
+        ("видеокарта RTX 5070 и 32 ГБ", None),  # 5070 и 32 — не бюджет
+    ],
+)
 def test_parse_budget(text, budget):
     assert parse_budget(text) == budget
 
@@ -95,6 +102,7 @@ def test_find_part_by_name():
 
 # ---------- Разбор через LLM ----------
 
+
 def test_without_provider_rules_are_used(use_provider):
     use_provider(None)
     params, source, notes = service.parse_request("игры в 4k до 250 тысяч", CATALOG)
@@ -104,10 +112,19 @@ def test_without_provider_rules_are_used(use_provider):
 
 
 def test_llm_answer_is_used(use_provider):
-    provider = use_provider(FakeProvider(json_answer={
-        "budget": 130_000, "scenario": "gaming", "resolution": "1440p", "platform": None,
-        "gpu_query": "RTX 5070", "cpu_query": None, "notes": "ok",
-    }))
+    provider = use_provider(
+        FakeProvider(
+            json_answer={
+                "budget": 130_000,
+                "scenario": "gaming",
+                "resolution": "1440p",
+                "platform": None,
+                "gpu_query": "RTX 5070",
+                "cpu_query": None,
+                "notes": "ok",
+            }
+        )
+    )
     params, source, _ = service.parse_request("что-то сложное про игры", CATALOG)
     assert source == "llm"
     assert params.budget == 130_000
@@ -116,10 +133,19 @@ def test_llm_answer_is_used(use_provider):
 
 
 def test_llm_resolution_ignored_outside_games(use_provider):
-    use_provider(FakeProvider(json_answer={
-        "budget": 50_000, "scenario": "office", "resolution": "4k", "platform": "intel",
-        "gpu_query": None, "cpu_query": None, "notes": "ok",
-    }))
+    use_provider(
+        FakeProvider(
+            json_answer={
+                "budget": 50_000,
+                "scenario": "office",
+                "resolution": "4k",
+                "platform": "intel",
+                "gpu_query": None,
+                "cpu_query": None,
+                "notes": "ok",
+            }
+        )
+    )
     params, source, notes = service.parse_request("комп для учёбы до 50к на интеле", CATALOG)
     assert source == "llm"
     assert params.resolution == Resolution.QHD  # значение по умолчанию, а не выдумка модели
@@ -149,16 +175,35 @@ def test_unknown_gpu_is_reported(use_provider):
 # ---------- Объяснение ----------
 
 FACTS = {
-    "variant": "Оптимальная", "tier": "optimal", "scenario": "office", "scenario_title": "офис и учёба",
-    "resolution": None, "budget_rub": 45000, "price_rub": 44200, "unused_rub": 800, "over_budget_rub": 0,
-    "score": 70, "parts": {}, "price_share_pct": {},
-    "cpu": {"title": "AMD Ryzen 5 7600", "cores": 6, "threads": 12, "has_igpu": True, "socket": "AM5",
-            "current_platform": True},
-    "gpu": None, "gaming_limiter": None,
+    "variant": "Оптимальная",
+    "tier": "optimal",
+    "scenario": "office",
+    "scenario_title": "офис и учёба",
+    "resolution": None,
+    "budget_rub": 45000,
+    "price_rub": 44200,
+    "unused_rub": 800,
+    "over_budget_rub": 0,
+    "score": 70,
+    "parts": {},
+    "price_share_pct": {},
+    "cpu": {
+        "title": "AMD Ryzen 5 7600",
+        "cores": 6,
+        "threads": 12,
+        "has_igpu": True,
+        "socket": "AM5",
+        "current_platform": True,
+    },
+    "gpu": None,
+    "gaming_limiter": None,
     "ram": {"capacity_gb": 16, "type": "DDR5", "modules": 2, "speed_mhz": 6000},
     "storage": {"title": "Kingston NV3 1TB", "kind": "NVMe", "capacity_gb": 1000},
-    "power_w": 146, "psu": {"title": "DeepCool PF450", "wattage": 450, "efficiency": "80+", "headroom_pct": 208},
-    "warnings": [], "upgrades": [], "savings": [],
+    "power_w": 146,
+    "psu": {"title": "DeepCool PF450", "wattage": 450, "efficiency": "80+", "headroom_pct": 208},
+    "warnings": [],
+    "upgrades": [],
+    "savings": [],
 }
 
 
@@ -179,7 +224,9 @@ def test_explain_falls_back_to_template(use_provider):
 def test_explain_stream_with_llm(use_provider):
     use_provider(FakeProvider(chunks=["Простое ", "объяснение."]))
     assert list(service.explain_stream(FACTS)) == [
-        {"delta": "Простое "}, {"delta": "объяснение."}, {"done": True, "source": "llm"},
+        {"delta": "Простое "},
+        {"delta": "объяснение."},
+        {"done": True, "source": "llm"},
     ]
 
 
@@ -199,6 +246,7 @@ def test_explain_stream_without_provider(use_provider):
 
 def test_factory_disabled_without_key(monkeypatch):
     from app.ai import factory
+
     factory.get_provider.cache_clear()
     monkeypatch.setattr(factory.settings, "llm_provider", "anthropic")
     monkeypatch.setattr(factory.settings, "llm_api_key", "")
@@ -207,6 +255,7 @@ def test_factory_disabled_without_key(monkeypatch):
 
 
 # ---------- OpenAI-совместимый провайдер ----------
+
 
 class FakeStream(list):
     """Поток чанков: итерируется и закрывается через with, как openai.Stream."""
@@ -228,9 +277,11 @@ class FakeCompletions:
     def create(self, model, messages, temperature=None, response_format=None, stream=False, timeout=None):
         import httpx
         import openai
+
         if stream:  # ответ кусками по словам, как приходят чанки от API
             deltas = [type("D", (), {"content": w})() for w in self.answer.split(" ") if w] + [
-                type("D", (), {"content": None})()]  # последний чанк без текста
+                type("D", (), {"content": None})()
+            ]  # последний чанк без текста
             return FakeStream([type("Ch", (), {"choices": [type("C", (), {"delta": d})()]})() for d in deltas])
         kind = response_format["type"] if isinstance(response_format, dict) else "none"
         self.formats.append(kind)
@@ -243,6 +294,7 @@ class FakeCompletions:
 
 def make_openai_provider(accepted, answer):
     from app.ai.openai_provider import OpenAICompatibleProvider
+
     provider = OpenAICompatibleProvider("key", "model", "http://test/v1")
     completions = FakeCompletions(accepted, answer)
     provider.client = type("Client", (), {"chat": type("Chat", (), {"completions": completions})})
@@ -299,10 +351,19 @@ def test_explain_prompt_is_readable_for_model():
 
 
 def test_explain_prompt_gaming_and_upgrades():
-    data = prompt_data({
-        **FACTS, "scenario": "gaming", "resolution": "1440p", "gaming_limiter": "gpu", "over_budget_rub": 3000,
-        "upgrades": [{"text": "SSD 2 ТБ: +4 000 ₽", "worth_it": True}, {"text": "CPU: +20 000 ₽", "worth_it": False}],
-    })
+    data = prompt_data(
+        {
+            **FACTS,
+            "scenario": "gaming",
+            "resolution": "1440p",
+            "gaming_limiter": "gpu",
+            "over_budget_rub": 3000,
+            "upgrades": [
+                {"text": "SSD 2 ТБ: +4 000 ₽", "worth_it": True},
+                {"text": "CPU: +20 000 ₽", "worth_it": False},
+            ],
+        }
+    )
     assert data["разрешение"] == "1440p (2560×1440)"
     assert data["баланс в играх"].startswith("скорость в играх ограничивает видеокарта")
     assert data["цена и бюджет"] == f"дороже бюджета на {service.format_rub(3000)}"
@@ -336,6 +397,7 @@ def test_ndjson_closes_generator_when_client_leaves():
 
 
 # ---------- Таймауты OpenAI-совместимого провайдера (медленный поддельный сервер) ----------
+
 
 @pytest.fixture
 def slow_server(monkeypatch):
@@ -379,8 +441,21 @@ def slow_server(monkeypatch):
                         self.wfile.flush()
                     self.wfile.write(b"data: [DONE]\n\n")
                 else:
-                    data = json.dumps({"id": "x", "object": "chat.completion", "created": 0, "model": "m", "choices": [
-                        {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "ответ"}}]})
+                    data = json.dumps(
+                        {
+                            "id": "x",
+                            "object": "chat.completion",
+                            "created": 0,
+                            "model": "m",
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "finish_reason": "stop",
+                                    "message": {"role": "assistant", "content": "ответ"},
+                                }
+                            ],
+                        }
+                    )
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()

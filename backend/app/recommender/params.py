@@ -1,4 +1,5 @@
 """Параметры подбора: что пользователь хочет получить."""
+
 from dataclasses import dataclass
 from enum import StrEnum
 

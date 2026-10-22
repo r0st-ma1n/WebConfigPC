@@ -3,6 +3,7 @@
 Сборка ничего не знает о базе данных: она хранит уже загруженные детали.
 Поэтому модули совместимости и подбора можно тестировать без PostgreSQL.
 """
+
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -63,8 +64,16 @@ class Build:
 
     def _copy(self, **changes: object) -> Build:
         # Прямой вызов конструктора: dataclasses.replace в переборе заметно медленнее
-        slots = {"cpu": self.cpu, "gpu": self.gpu, "motherboard": self.motherboard, "ram": self.ram,
-                 "storages": self.storages, "psu": self.psu, "case": self.case, "cooler": self.cooler}
+        slots = {
+            "cpu": self.cpu,
+            "gpu": self.gpu,
+            "motherboard": self.motherboard,
+            "ram": self.ram,
+            "storages": self.storages,
+            "psu": self.psu,
+            "case": self.case,
+            "cooler": self.cooler,
+        }
         return Build(**(slots | changes))  # type: ignore[arg-type]
 
     def part_in_slot(self, category: Category) -> Component | None:

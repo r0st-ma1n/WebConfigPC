@@ -1,4 +1,5 @@
 """Тесты модуля совместимости: для каждого правила есть случай без нарушения и с нарушением."""
+
 import pytest
 
 from app.compatibility import Level, check_build, filter_compatible
@@ -17,6 +18,7 @@ def test_full_default_build_is_clean():
 
 
 # ---------- Сокеты и охлаждение ----------
+
 
 def test_socket_mismatch():
     build = f.full_build(cpu=f.cpu(socket="LGA1700", memory_types=["DDR4", "DDR5"]))
@@ -46,6 +48,7 @@ def test_weak_cooler_is_warning():
 
 
 # ---------- Память ----------
+
 
 def test_ram_type_mismatch():
     build = f.full_build(ram=f.ram(memory_type="DDR4"))
@@ -79,6 +82,7 @@ def test_ram_capacity_exceeds_board_limit():
 
 # ---------- Накопители ----------
 
+
 def test_too_many_m2_drives():
     build = f.full_build(motherboard=f.motherboard(m2_slots=1), storages=[f.storage(), f.storage()])
     assert "m2_slots" in codes(build)
@@ -91,6 +95,7 @@ def test_sata_drives_do_not_use_m2_slots():
 
 
 # ---------- Корпус ----------
+
 
 def test_board_form_factor_not_supported_by_case():
     build = f.full_build(case=f.case(supported_form_factors=["mATX", "ITX"]))
@@ -127,6 +132,7 @@ def test_aio_radiator_must_fit_case():
 
 # ---------- Питание ----------
 
+
 def test_psu_insufficient_is_error():
     result = check_build(f.full_build(psu=f.psu(wattage=300)))
     assert "psu_insufficient" in {e.code for e in result.errors}
@@ -148,6 +154,7 @@ def test_recommended_psu_respects_gpu_vendor_advice():
 
 # ---------- Баланс CPU и GPU ----------
 
+
 @pytest.mark.parametrize(
     ("cpu_score", "gpu_score", "expected"),
     [
@@ -163,6 +170,7 @@ def test_cpu_gpu_balance(cpu_score, gpu_score, expected):
 
 
 # ---------- Законченная сборка ----------
+
 
 def test_missing_parts_reported_only_for_complete_build():
     build = Build(cpu=f.cpu())
@@ -182,6 +190,7 @@ def test_cpu_without_box_cooler_needs_cooler():
 
 
 # ---------- Фильтр для ручного режима ----------
+
 
 def test_filter_compatible_boards_by_cpu():
     build = Build(cpu=f.cpu(socket="AM5"))
