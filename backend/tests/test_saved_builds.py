@@ -1,39 +1,15 @@
-"""Сохранённые сборки. Тесты работают с настоящим PostgreSQL (в CI он есть всегда).
-
-Каждый тест идёт внутри транзакции, которая в конце откатывается: commit в коде
-приложения фиксирует только точку сохранения (SAVEPOINT), и база остаётся чистой.
-"""
+"""Сохранённые сборки. Тесты работают с настоящим PostgreSQL (фикстура session в conftest.py)."""
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import exists, select
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app import saved_builds
-from app.db import engine, get_session
+from app.db import get_session
 from app.main import app
 from app.models import Component, SavedBuild
 
 REQUEST = {"budget": 120_000, "scenario": "gaming", "resolution": "1440p"}
-
-
-@pytest.fixture
-def session():
-    try:
-        connection = engine.connect()
-    except OperationalError:
-        pytest.skip("PostgreSQL не запущен")
-    transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
-    try:
-        if not session.scalar(select(exists().select_from(Component))):
-            pytest.skip("база не заполнена (python -m app.seed)")
-        yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
 
 
 @pytest.fixture

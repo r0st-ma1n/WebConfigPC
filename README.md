@@ -157,6 +157,28 @@ LLM_BASE_URL=https://адрес-api/v1   # для OpenAI можно не ука�
 в `LLM_BASE_URL` вместо `localhost` укажите `host.docker.internal`, например
 `http://host.docker.internal:1234/v1`.
 
+### Обновление цен
+
+Цены обновляются из прайс-листа поставщика в CSV с колонками `brand`, `name` и `price_rub`
+(пример — `prices/prices.example.csv`). Разделитель — запятая или точка с запятой,
+цену можно записать как `12 990` или `12990,00`. Детали ищутся по бренду и названию:
+их id меняются при повторном заполнении базы.
+
+```bash
+cd backend
+uv run python -m app.prices ../prices/prices.csv --dry-run   # только отчёт
+uv run python -m app.prices ../prices/prices.csv             # записать цены
+
+# В Docker: импорт ./prices/prices.csv раз в час (интервал — PRICES_IMPORT_INTERVAL)
+docker compose --profile prices up -d
+```
+
+Если цена изменилась больше чем на 50%, она не применяется и попадает в отчёт:
+такое изменение чаще означает ошибку в выгрузке (лишний ноль), чем реальное подорожание.
+Порог задаёт `--max-change`. Строки, которые не удалось разобрать, и детали, которых нет
+в каталоге, тоже попадают в отчёт. Бэкенд перезапускать не нужно: каталог читается
+из базы при каждом запросе.
+
 ## Тесты и проверки
 
 ```bash
@@ -188,6 +210,7 @@ PostgreSQL (загрузка каталога, сохранённые сборк
 | `test_eval_explanations.py` | проверки скрипта оценки объяснений |
 | `test_saved_builds.py` | сохранение и открытие по ссылке, изменение цены, ошибки, повтор при совпадении кода (PostgreSQL) |
 | `test_production.py` | лимит запросов к ИИ, request-id и логи, проверка готовности, настройки CORS |
+| `test_prices.py` | разбор прайс-листа в CSV, ошибки в строках, отклонение резких изменений цены, запись в БД |
 
 ### Оценка точности объяснений
 
@@ -224,7 +247,7 @@ uv run python backend/scripts/eval_explanations.py --rescore eval.json   # пе�
 │   compatibility/      — правила совместимости                            │
 │   recommender/        — бюджет, оценка, поиск, замены, объяснения        │
 │   ai/                 — провайдеры LLM, разбор запроса, объяснения       │
-│   prices/             — заглушка для будущего парсера цен                │
+│   prices/             — импорт цен из прайс-листа (CSV) по расписанию    │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ SQLAlchemy-модели (models.py) ── Alembic-миграции ── PostgreSQL          │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -250,7 +273,7 @@ backend/
     compatibility/       rules.py — правила, checker.py — проверка и фильтр
     recommender/         params, budget, scoring, builder, alternatives, explain
     ai/                  base, anthropic_provider, openai_provider, factory, rules_parser, service
-    prices/provider.py   интерфейс источника цен и заглушка
+    prices/              provider — интерфейс источника цен и проверка, csv_source — прайс-лист
     api/                 роутеры FastAPI
     seed/                components.json и скрипт заполнения БД
   migrations/            миграции Alembic

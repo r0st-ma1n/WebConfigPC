@@ -44,6 +44,29 @@ services:
       timeout: 3s
       retries: 12
 
+  # Импорт цен по расписанию: docker compose --profile prices up -d
+  # Прайс-лист кладётся в ./prices/prices.csv (формат — prices/prices.example.csv)
+  prices:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: pcbuilder-prices
+    profiles: [prices]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      LOG_JSON: "true"
+    volumes:
+      - ./prices:/data:ro
+    command: ["python", "-m", "app.prices", "/data/prices.csv", "--every", "${PRICES_IMPORT_INTERVAL:-3600}"]
+    depends_on:
+      # Бэкенд при старте применяет миграции и заполняет базу
+      backend:
+        condition: service_healthy
+
   frontend:
     build: frontend
     container_name: pcbuilder-frontend

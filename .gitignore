@@ -19,3 +19,7 @@ ExamplesOfOtchet/
 
 # Текст курсовой (персональные данные) — не публиковать
 Курсовая/
+
+# Прайс-листы для импорта цен (пример — prices/prices.example.csv)
+prices/*.csv
+!prices/prices.example.csv
