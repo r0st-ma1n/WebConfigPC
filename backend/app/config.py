@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # В Docker фронтенд и API на одном адресе (nginx), поэтому там CORS не нужен
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Вход: срок жизни сессии и флаг Secure у cookie (true, когда сайт работает по HTTPS)
+    session_ttl_days: int = 30
+    cookie_secure: bool = False
+    # Попыток входа и регистрации в минуту с одного адреса — защита от перебора паролей
+    auth_rate_limit_per_minute: int = 10
+
     log_level: str = "INFO"
     # JSON-логи для сборщиков логов; в разработке удобнее обычный текст
     log_json: bool = False

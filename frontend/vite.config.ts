@@ -13,5 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // userEvent печатает посимвольно: при параллельном запуске 5 секунд по умолчанию бывает мало
+    testTimeout: 15_000,
   },
 })

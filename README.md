@@ -99,6 +99,27 @@ OpenAI-совместимый API, включая локальные модел�
   автоматически ищет выдуманные предупреждения, числа, которых нет в данных, неверный тип памяти
   и т. п. Его стоит запускать после каждой правки промпта или смены модели.
 
+### Вход — сессии в базе, а не JWT
+
+После входа браузер получает случайный токен в httpOnly-cookie, а в таблице `user_sessions`
+хранится только его SHA-256. Почему не JWT:
+
+- выход и «выйти на всех устройствах» должны срабатывать сразу. JWT действует до истечения
+  срока, и отозвать его можно только через то же хранилище на сервере, то есть
+  преимущество «без состояния» теряется;
+- бэкенд один, и запрос к таблице сессий по уникальному индексу ничего не стоит;
+- фронтенд и API открываются с одного адреса (nginx, в разработке — прокси Vite), поэтому
+  cookie работает без настройки CORS, а скрипты на странице токен не видят.
+
+Остальное:
+
+- пароли хешируются argon2id. Если адреса нет в базе, проверка всё равно идёт по фиктивному
+  хешу: по времени ответа нельзя узнать, зарегистрирован ли адрес, а текст ошибки одинаковый;
+- от CSRF защищает `SameSite=Lax`: с чужого сайта браузер не отправит cookie в POST-запросе;
+- попытки входа и регистрации ограничены `AUTH_RATE_LIMIT_PER_MINUTE` с одного адреса;
+- сохранять сборки можно и без входа. Сборки вошедшего пользователя попадают в «Мои сборки»,
+  удалить сборку может только её владелец.
+
 ### Логика не зависит от базы и HTTP
 
 Совместимость и подбор работают с обычными объектами в памяти, сборка неизменяема
@@ -209,6 +230,7 @@ PostgreSQL (загрузка каталога, сохранённые сборк
 | `test_ai.py` | разбор запроса правилами и через LLM, запасные варианты при ошибках LLM |
 | `test_eval_explanations.py` | проверки скрипта оценки объяснений |
 | `test_saved_builds.py` | сохранение и открытие по ссылке, изменение цены, ошибки, повтор при совпадении кода (PostgreSQL) |
+| `test_auth.py` | регистрация, вход, хранение только хешей, выход и выход везде, истёкшая сессия, лимит попыток, «Мои сборки» и права на удаление (PostgreSQL) |
 | `test_production.py` | лимит запросов к ИИ, request-id и логи, проверка готовности, настройки CORS |
 | `test_prices.py` | разбор прайс-листа в CSV, ошибки в строках, отклонение резких изменений цены, запись в БД |
 
@@ -265,9 +287,11 @@ backend/
   app/
     main.py              точка входа FastAPI
     config.py, db.py     настройки из .env, подключение к БД
-    models.py            ORM-модели комплектующих
+    models.py            ORM-модели: комплектующие, пользователи, сохранённые сборки
     schemas.py           Pydantic-схемы API
     repository.py        загрузка каталога из БД
+    auth.py              пароли, сессии, текущий пользователь
+    saved_builds.py      сохранение сборок, «Мои сборки»
     domain.py            класс Build (сборка)
     balance.py           баланс процессора и видеокарты
     compatibility/       rules.py — правила, checker.py — проверка и фильтр
@@ -281,17 +305,33 @@ backend/
   tests/                 pytest
 frontend/
   src/
-    api.ts, types.ts, format.ts
-    pages/               RecommendPage (подбор), ManualPage (ручная сборка)
-    components/          BuildDetails, BudgetBar, PartsList, Alternatives, Issues, Segmented
+    api.ts, types.ts, format.ts, router.tsx
+    auth.tsx             текущий пользователь (контекст React)
+    pages/               RecommendPage (подбор), ManualPage (ручная сборка), SavedBuildPage (/b/<код>),
+                         LoginPage (вход и регистрация), AccountPage («Мои сборки»)
+    components/          BuildDetails, BudgetBar, PartsList, Alternatives, Issues, Segmented, ShareBuild
+    test/                заглушки API и тестовые данные для Vitest
+  e2e/                   сценарии Playwright
 ```
 
 ## Схема БД
 
+### Пользователи
+
+```
+users          (id PK, email UNIQUE, password_hash, created_at)
+user_sessions  (id PK, user_id FK → users ON DELETE CASCADE, token_hash UNIQUE, created_at, expires_at)
+```
+
+- `email` хранится в нижнем регистре, поэтому уникальность не зависит от регистра.
+- `token_hash` — SHA-256 токена из cookie. Сам токен в базе не хранится: даже при утечке
+  таблицы войти под чужой сессией нельзя. Истёкшие сессии пользователя удаляются при его входе.
+
 ### Сохранённые сборки
 
 ```
-saved_builds       (id PK, slug UNIQUE, params JSONB, tier, created_at)
+saved_builds       (id PK, slug UNIQUE, params JSONB, tier, created_at,
+                    user_id FK → users ON DELETE SET NULL)
 saved_build_parts  (build_id FK → saved_builds ON DELETE CASCADE, position,
                     component_id FK → components ON DELETE RESTRICT, price_rub)
 ```
@@ -305,6 +345,8 @@ saved_build_parts  (build_id FK → saved_builds ON DELETE CASCADE, position,
 - Ключ детали — `(build_id, position)`, а не `(build_id, component_id)`: в сборке может
   быть два одинаковых накопителя, и порядок деталей сохраняется.
 - `RESTRICT` не даёт удалить из каталога деталь, на которую ссылается сохранённая сборка.
+- `user_id` пустой у сборок, сохранённых без входа. `SET NULL` при удалении пользователя
+  сохраняет ссылки, которыми он уже поделился.
 
 ### Каталог комплектующих
 
@@ -583,6 +625,13 @@ score = Σ вес(сценарий, роль) × оценка(роль)
 | POST | `/api/ai/explain/stream` | то же объяснение потоком (NDJSON) |
 | POST | `/api/builds` | сохранить сборку, в ответе код для ссылки |
 | GET | `/api/builds/{slug}` | сохранённая сборка по текущим ценам и цена на момент сохранения |
+| GET | `/api/builds` | «Мои сборки» (нужен вход) |
+| DELETE | `/api/builds/{slug}` | удалить свою сборку (нужен вход) |
+| POST | `/api/auth/register` | регистрация, сразу выполняет вход |
+| POST | `/api/auth/login` | вход: ставит cookie сессии |
+| POST | `/api/auth/logout` | выход на этом устройстве |
+| POST | `/api/auth/logout-all` | выход на всех устройствах |
+| GET | `/api/auth/me` | текущий пользователь или 401 |
 | GET | `/api/health` | процесс жив (liveness) |
 | GET | `/api/health/ready` | база доступна (readiness); при ошибке — 503 |
 
@@ -599,6 +648,8 @@ score = Σ вес(сценарий, роль) × оценка(роль)
   экземплярах бэкенда их нужно перенести в общее хранилище, например Redis.
 - **Проверки здоровья.** Docker Compose считает бэкенд готовым по `/api/health/ready`,
   и nginx стартует только после этого.
+- **Cookie сессии.** За HTTPS включите `COOKIE_SECURE=true`, чтобы браузер не отправлял
+  cookie по незашифрованному соединению. Срок жизни сессии — `SESSION_TTL_DAYS` (30 дней).
 - **CORS** задаётся переменной `CORS_ORIGINS`. Нужен, только когда фронтенд открыт с другого
   адреса, как Vite в разработке; в Docker фронтенд и API на одном адресе.
 - **База.** Подключение ограничено 5 секундами (`connect_timeout`): если база недоступна,

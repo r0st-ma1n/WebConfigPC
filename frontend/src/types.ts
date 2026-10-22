@@ -81,6 +81,22 @@ export interface SavedBuild {
   /** Цена на момент сохранения; recommendation.total_price — по текущим ценам */
   saved_price: number
   recommendation: Recommendation
+  /** Сборку сохранил текущий пользователь */
+  owned: boolean
+}
+
+/** Строка списка «Мои сборки» */
+export interface SavedBuildSummary {
+  slug: string
+  created_at: string
+  title: string
+  params: RecommendParams
+  saved_price: number
+}
+
+export interface User {
+  id: number
+  email: string
 }
 
 export interface RecommendResult {

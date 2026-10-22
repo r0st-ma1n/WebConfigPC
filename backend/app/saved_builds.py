@@ -1,4 +1,4 @@
-"""Сохранённые сборки: запись в базу и чтение по короткому коду из ссылки."""
+"""Сохранённые сборки: запись в базу, чтение по короткому коду из ссылки, список и удаление своих."""
 
 import logging
 import secrets
@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Component, SavedBuild, SavedBuildPart
+from app.models import Component, SavedBuild, SavedBuildPart, User
 from app.recommender import require_complete
 from app.repository import build_from_ids
 from app.schemas import RecommendIn, SaveBuildIn
@@ -20,7 +20,7 @@ SLUG_BYTES = 6
 SLUG_ATTEMPTS = 3
 
 
-def create(session: Session, parts: list[Component], body: SaveBuildIn) -> SavedBuild:
+def create(session: Session, parts: list[Component], body: SaveBuildIn, owner: User | None = None) -> SavedBuild:
     """Сохраняет сборку. Неизвестные детали — 404, неполная сборка — 422 (RecommendError)."""
     build = build_from_ids(parts, body.part_ids)
     require_complete(build)
@@ -32,6 +32,7 @@ def create(session: Session, parts: list[Component], body: SaveBuildIn) -> Saved
             slug=secrets.token_urlsafe(SLUG_BYTES),
             params=params.model_dump(mode="json"),
             tier=body.tier.value if body.tier else None,
+            user_id=owner.id if owner else None,
             parts=[
                 SavedBuildPart(position=i, component_id=pid, price_rub=by_id[pid].price_rub)
                 for i, pid in enumerate(body.part_ids)
@@ -52,3 +53,14 @@ def create(session: Session, parts: list[Component], body: SaveBuildIn) -> Saved
 
 def get(session: Session, slug: str) -> SavedBuild | None:
     return session.scalar(select(SavedBuild).where(SavedBuild.slug == slug))
+
+
+def list_owned(session: Session, owner: User) -> list[SavedBuild]:
+    """Сборки пользователя, новые первыми."""
+    query = select(SavedBuild).where(SavedBuild.user_id == owner.id)
+    return list(session.scalars(query.order_by(SavedBuild.created_at.desc(), SavedBuild.id.desc())))
+
+
+def delete(session: Session, saved: SavedBuild) -> None:
+    session.delete(saved)
+    session.commit()

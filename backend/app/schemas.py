@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from app.balance import Resolution
 from app.compatibility import CheckResult, Issue
@@ -227,3 +227,28 @@ class SavedBuildOut(BaseModel):
     params: RecommendIn
     saved_price: int  # цена сборки на момент сохранения
     recommendation: RecommendationOut  # оценка по текущим ценам
+    owned: bool  # сборку сохранил текущий пользователь
+
+
+class SavedBuildSummaryOut(BaseModel):
+    """Строка списка «Мои сборки»: без оценки, только то, что видно в списке."""
+
+    slug: str
+    created_at: datetime
+    title: str  # «Оптимальная», «Ваша сборка»...
+    params: RecommendIn
+    saved_price: int
+
+
+# ---------- Пользователи ----------
+
+
+class CredentialsIn(BaseModel):
+    email: EmailStr = Field(max_length=254)
+    # Верхняя граница — чтобы хеширование огромной строки не стало способом нагрузить сервер
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str

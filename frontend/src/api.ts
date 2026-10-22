@@ -1,16 +1,23 @@
 // Клиент API бэкенда. Все запросы идут на /api (в разработке Vite проксирует их на :8000)
 import type {
   AiStatus, Category, CheckResult, Component, Option, ParseResult,
-  RecommendParams, RecommendResult, Recommendation, Resolution, SavedBuild,
+  RecommendParams, RecommendResult, Recommendation, Resolution, SavedBuild, SavedBuildSummary, User,
 } from './types'
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  status?: number
+  constructor(message: string, status?: number) {
+    super(message)
+    this.status = status
+  }
+}
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+// Cookie сессии браузер отправляет сам: фронтенд и API на одном адресе (в разработке — через прокси Vite)
+async function request<T>(path: string, body?: unknown, method?: 'DELETE'): Promise<T> {
   let response: Response
   try {
     response = await fetch(`/api${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
@@ -21,7 +28,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   if (!response.ok) {
     // FastAPI возвращает текст ошибки в поле detail (строка или список ошибок валидации)
     const detail = data?.detail
-    throw new ApiError(typeof detail === 'string' ? detail : 'Проверьте введённые параметры.')
+    throw new ApiError(typeof detail === 'string' ? detail : 'Проверьте введённые параметры.', response.status)
   }
   return data as T
 }
@@ -72,4 +79,12 @@ export const api = {
   saveBuild: (params: RecommendParams, partIds: number[], tier: Recommendation['tier']) =>
     request<{ slug: string }>('/builds', { ...params, part_ids: partIds, tier }),
   savedBuild: (slug: string) => request<SavedBuild>(`/builds/${encodeURIComponent(slug)}`),
+  myBuilds: () => request<SavedBuildSummary[]>('/builds'),
+  deleteBuild: (slug: string) => request<null>(`/builds/${encodeURIComponent(slug)}`, undefined, 'DELETE'),
+
+  me: () => request<User>('/auth/me'),
+  register: (email: string, password: string) => request<User>('/auth/register', { email, password }),
+  login: (email: string, password: string) => request<User>('/auth/login', { email, password }),
+  logout: () => request<null>('/auth/logout', {}),
+  logoutAll: () => request<null>('/auth/logout-all', {}),
 }

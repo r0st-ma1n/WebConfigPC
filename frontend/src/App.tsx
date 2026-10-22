@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
+import { AuthProvider, useAuth } from './auth'
+import { AccountPage } from './pages/AccountPage'
+import { LoginPage } from './pages/LoginPage'
 import { ManualPage } from './pages/ManualPage'
 import { RecommendPage } from './pages/RecommendPage'
 import { SavedBuildPage } from './pages/SavedBuildPage'
@@ -14,7 +17,14 @@ const builds = [
 
 function Header({ ai }: { ai: AiStatus | null }) {
   const path = usePath()
-  return <header className="site-header flex flex-wrap items-center gap-5 px-5 md:flex-nowrap md:gap-12 md:px-[5vw]"><Link className="brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><nav className="main-nav flex w-full items-center gap-6 overflow-x-auto md:w-auto md:gap-8" aria-label="Главная навигация">{[['/', 'Главная'], ['/recommend', 'Подбор'], ['/manual', 'Ручная сборка'], ['/info', 'База знаний']].map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className={`nav-link${path === to ? ' active' : ''}`}>{label}</NavLink>)}</nav><div className="header-actions ml-auto flex items-center gap-4"><span className="header-status"><i />{ai?.enabled ? `ИИ · ${ai.model}` : 'Сервис готов'}</span><button className="profile-button" type="button" aria-label="Личный кабинет">↗</button></div></header>
+  return <header className="site-header flex flex-wrap items-center gap-5 px-5 md:flex-nowrap md:gap-12 md:px-[5vw]"><Link className="brand" to="/"><span className="brand-mark">С<span>.</span></span><span>Сборщик <span className="brand-light">ПК</span></span></Link><nav className="main-nav flex w-full items-center gap-6 overflow-x-auto md:w-auto md:gap-8" aria-label="Главная навигация">{[['/', 'Главная'], ['/recommend', 'Подбор'], ['/manual', 'Ручная сборка'], ['/info', 'База знаний']].map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className={`nav-link${path === to ? ' active' : ''}`}>{label}</NavLink>)}</nav><div className="header-actions ml-auto flex items-center gap-4"><span className="header-status"><i />{ai?.enabled ? `ИИ · ${ai.model}` : 'Сервис готов'}</span><ProfileLink/></div></header>
+}
+
+/** Кружок в шапке: буква почты, если вошли, иначе ссылка на вход */
+function ProfileLink() {
+  const { user } = useAuth()
+  if (user) return <Link className="profile-button" to="/account" aria-label="Личный кабинет" title={user.email}>{user.email[0].toUpperCase()}</Link>
+  return <Link className="profile-button" to="/login" aria-label="Войти">↗</Link>
 }
 
 function Footer() {
@@ -42,12 +52,12 @@ function AppRoutes({ ai }: { ai: AiStatus | null }) {
     <div hidden={path !== '/recommend'}><div className={pageLayout}><RecommendPage ai={ai}/></div></div>
     <div hidden={path !== '/manual'}><div className={pageLayout}><ManualPage/></div></div>
     {path.startsWith('/b/') && <div className={pageLayout}><SavedBuildPage key={path} slug={path.slice(3)} ai={ai}/></div>}
-    {!persistent && !path.startsWith('/b/') && <RouteView path={path} routes={{ '/': <HomePage/>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/>}
+    {!persistent && !path.startsWith('/b/') && <RouteView path={path} routes={{ '/': <HomePage/>, '/info': <InfoPage/>, '/login': <LoginPage/>, '/account': <AccountPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/>}
   </main><Footer/></>
 }
 
 export default function App() {
   const [ai, setAi] = useState<AiStatus | null>(null)
   useEffect(() => { api.aiStatus().then(setAi).catch(() => setAi(null)) }, [])
-  return <Router><AppRoutes ai={ai}/></Router>
+  return <Router><AuthProvider><AppRoutes ai={ai}/></AuthProvider></Router>
 }

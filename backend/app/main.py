@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api import ai, builds, components, recommend
+from app.api import ai, auth, builds, components, recommend
 from app.config import settings
 from app.db import get_session
 from app.observability import RequestContextMiddleware, setup_logging
@@ -28,6 +28,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
+    # Cookie сессии с другого адреса фронтенда (в Docker и с прокси Vite адрес тот же)
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
@@ -38,6 +40,7 @@ app.add_middleware(RequestContextMiddleware)
 app.include_router(components.router)
 app.include_router(recommend.router)
 app.include_router(ai.router)
+app.include_router(auth.router)
 app.include_router(builds.router)
 
 

@@ -15,15 +15,23 @@ export function Router({ children }: { children: ReactNode }) {
 
 export function usePath() { return useContext(PathContext).path }
 
-export function Link({ to, children, ...props }: { to: string; children: ReactNode } & AnchorHTMLAttributes<HTMLAnchorElement>) {
+/** Переход из кода (после входа, выхода): то же, что нажатие на ссылку */
+export function useNavigate() {
   const { navigate } = useContext(PathContext)
+  return (to: string) => {
+    if (window.location.pathname !== to) window.history.pushState({}, '', to)
+    navigate(to)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+}
+
+export function Link({ to, children, ...props }: { to: string; children: ReactNode } & AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const navigate = useNavigate()
   return <a href={to} {...props} onClick={(event) => {
     props.onClick?.(event)
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
-    if (window.location.pathname !== to) window.history.pushState({}, '', to)
     navigate(to)
-    window.scrollTo({ top: 0, behavior: 'instant' })
   }}>{children}</a>
 }
 
