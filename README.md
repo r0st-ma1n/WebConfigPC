@@ -162,8 +162,10 @@ LLM_BASE_URL=https://адрес-api/v1   # для OpenAI можно не ука�
 ```bash
 uv run pytest                     # тесты
 uv run ruff check backend         # линтер
+uv run ruff format backend        # форматирование (в CI — ruff format --check)
 cd backend && uv run mypy         # проверка типов
 cd frontend && npm run lint && npm test && npm run build
+cd frontend && npm run test:e2e   # e2e на Playwright (один раз: npx playwright install chromium)
 ```
 
 Те же проверки запускает GitHub Actions на каждый push и pull request
