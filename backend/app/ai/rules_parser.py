@@ -4,6 +4,7 @@
 за 150к на интеле», «компьютер для учёбы 40000 руб». Используется, когда LLM
 не подключена или вернула ошибку.
 """
+
 import re
 from dataclasses import dataclass, field
 
@@ -17,12 +18,24 @@ _MONEY = re.compile(
 )
 
 SCENARIO_KEYWORDS = {
-    Scenario.WORKSTATION: ["монтаж", "видео", "3d", "3д", "рендер", "blender", "davinci", "premiere",
-                           "after effects", "моделир", "дизайн", "cad", "автокад", "для работы"],
-    Scenario.OFFICE: ["офис", "учеб", "учёб", "документ", "браузер", "word", "excel", "школ",
-                      "интернет", "бухгалт"],
-    Scenario.GAMING: ["игр", "гейм", "gaming", "fps", "кс", "cs2", "dota", "дота", "киберспорт",
-                      "стрим", "ааа", "aaa"],
+    Scenario.WORKSTATION: [
+        "монтаж",
+        "видео",
+        "3d",
+        "3д",
+        "рендер",
+        "blender",
+        "davinci",
+        "premiere",
+        "after effects",
+        "моделир",
+        "дизайн",
+        "cad",
+        "автокад",
+        "для работы",
+    ],
+    Scenario.OFFICE: ["офис", "учеб", "учёб", "документ", "браузер", "word", "excel", "школ", "интернет", "бухгалт"],
+    Scenario.GAMING: ["игр", "гейм", "gaming", "fps", "кс", "cs2", "dota", "дота", "киберспорт", "стрим", "ааа", "aaa"],
 }
 
 RESOLUTION_PATTERNS = [
@@ -38,7 +51,8 @@ PLATFORM_PATTERNS = [
 
 GPU_PATTERN = re.compile(r"\b(rtx|gtx|rx|arc)\s*-?\s*([a-z]?\d{3,4})\s*(ti|xtx|xt|super)?\b", re.IGNORECASE)
 CPU_PATTERN = re.compile(
-    r"\b(ryzen\s*\d\s*\d{4}\w*|i[3579]\s*-?\s*\d{4,5}\w*|ultra\s*\d\s*\d{3}k?)\b", re.IGNORECASE,
+    r"\b(ryzen\s*\d\s*\d{4}\w*|i[3579]\s*-?\s*\d{4,5}\w*|ultra\s*\d\s*\d{3}k?)\b",
+    re.IGNORECASE,
 )
 
 

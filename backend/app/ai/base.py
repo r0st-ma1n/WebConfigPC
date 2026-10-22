@@ -1,5 +1,6 @@
 """Интерфейс провайдера LLM. Чтобы подключить новый провайдер, достаточно
 реализовать три метода и добавить его в factory.py."""
+
 from collections.abc import Iterator
 from typing import Protocol
 

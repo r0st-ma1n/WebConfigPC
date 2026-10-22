@@ -16,6 +16,7 @@
 5. Выбирается сборка с наибольшей оценкой. Если несколько сборок отличаются
    по оценке меньше чем на 1%, берётся самая дешёвая.
 """
+
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from typing import cast
@@ -177,14 +178,16 @@ class BuildSearch:
 
     # ---------- Достройка сборки ----------
 
-    def _options[T: Component](self, kind: type[T], context: Build,
-                               extra: Callable[[T], bool] = lambda _: True) -> list[T]:
+    def _options[T: Component](
+        self, kind: type[T], context: Build, extra: Callable[[T], bool] = lambda _: True
+    ) -> list[T]:
         """Детали категории, совместимые с context. Результат кэшируется:
         например, платы для одного процессора ищутся один раз, а не для каждой видеокарты."""
         key = (kind, tuple(context.part_ids))
         if key not in self._options_cache:
             self._options_cache[key] = [
-                c for c in self.catalog.of_kind(kind)
+                c
+                for c in self.catalog.of_kind(kind)
                 if extra(c) and not check_build(context.with_part(c), balance_resolution=None).errors
             ]
         return cast(list[T], self._options_cache[key])
@@ -208,16 +211,14 @@ class BuildSearch:
         build = build.with_part(board)
 
         min_ram = self.request.min_ram_gb
-        ram = choose(C.RAM, self._options(Ram, Build(cpu=cpu, motherboard=board),
-                                          lambda r: r.capacity_gb >= min_ram))
+        ram = choose(C.RAM, self._options(Ram, Build(cpu=cpu, motherboard=board), lambda r: r.capacity_gb >= min_ram))
         storage = choose(C.STORAGE, self._options(Storage, Build(motherboard=board), self.storage_ok))
         if ram is None or storage is None:
             return None
         build = build.with_part(ram).with_part(storage)
 
         if not cpu.includes_cooler:
-            cooler = choose(C.COOLER, self._options(Cooler, Build(cpu=cpu),
-                                                    lambda c: c.max_tdp_w >= cpu.power_w))
+            cooler = choose(C.COOLER, self._options(Cooler, Build(cpu=cpu), lambda c: c.max_tdp_w >= cpu.power_w))
             if cooler is None:
                 return None
             build = build.with_part(cooler)
@@ -302,16 +303,16 @@ class BuildSearch:
     def search(self) -> dict[Tier, Build]:
         budget = self.request.budget
         minimal = [
-            b for cpu in self.cpu_options() for gpu in self.gpu_options()
+            b
+            for cpu in self.cpu_options()
+            for gpu in self.gpu_options()
             if (b := self.complete(cpu, gpu, None)) is not None
         ]
         if not minimal:
             raise RecommendError("Не удалось собрать совместимую сборку с такими условиями.")
         cheapest = min(b.total_price for b in minimal)
         if cheapest > budget:
-            raise RecommendError(
-                f"Бюджета не хватает: самая дешёвая подходящая сборка стоит {format_rub(cheapest)}."
-            )
+            raise RecommendError(f"Бюджета не хватает: самая дешёвая подходящая сборка стоит {format_rub(cheapest)}.")
 
         results: dict[Tier, Build] = {}
         for tier in Tier:

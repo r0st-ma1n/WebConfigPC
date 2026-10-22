@@ -1,4 +1,5 @@
 """Pydantic-схемы запросов и ответов API."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -30,8 +31,14 @@ class ComponentOut(BaseModel):
         # Колонки дочерней таблицы (cpus, gpus, ...) кроме id — это и есть характеристики
         columns = [c.name for c in type(part).__table__.columns if c.name != "id"]
         return cls(
-            id=part.id, category=part.category, brand=part.brand, name=part.name, title=part.title,
-            price_rub=part.price_rub, perf_score=part.perf_score, power_w=part.power_w,
+            id=part.id,
+            category=part.category,
+            brand=part.brand,
+            name=part.name,
+            title=part.title,
+            price_rub=part.price_rub,
+            perf_score=part.perf_score,
+            power_w=part.power_w,
             specs={name: getattr(part, name) for name in columns},
         )
 
@@ -104,6 +111,7 @@ class RecommendIn(BaseModel):
 
 class EvaluateIn(RecommendIn):
     """Оценить конкретную сборку (например, после применения замены)."""
+
     part_ids: list[int]
 
 
@@ -122,8 +130,12 @@ class AlternativeOut(BaseModel):
     @classmethod
     def from_alt(cls, alt: Alternative) -> AlternativeOut:
         return cls(
-            kind=alt.kind, category=alt.category, text=alt.text, price_delta=alt.price_delta,
-            score_delta_pct=alt.score_delta_pct, worth_it=alt.worth_it,
+            kind=alt.kind,
+            category=alt.category,
+            text=alt.text,
+            price_delta=alt.price_delta,
+            score_delta_pct=alt.score_delta_pct,
+            worth_it=alt.worth_it,
             new_part=ComponentOut.from_model(alt.new_part),
             also_changed=[ComponentOut.from_model(after) for _, after in alt.extra_changes],
             part_ids=alt.build.part_ids,
@@ -200,6 +212,7 @@ class ExplainOut(BaseModel):
 
 class SaveBuildIn(RecommendIn):
     """Сборка и параметры подбора, с которыми её открыть по ссылке."""
+
     part_ids: list[int] = Field(min_length=1, max_length=16)
     tier: Tier | None = None
 

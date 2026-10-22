@@ -1,4 +1,5 @@
 """Проверки тестового каталога: данных достаточно и они согласованы между собой."""
+
 from collections import Counter
 
 import pytest

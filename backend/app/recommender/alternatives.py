@@ -12,6 +12,7 @@
 «Доплатить» — замены с приростом не меньше 2%, лучшие по приросту на рубль.
 «Сэкономить» — замены, которые экономят деньги и снижают оценку не больше чем на 3%.
 """
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -114,8 +115,16 @@ def _candidates(search: BuildSearch, category: Category) -> Sequence[Component]:
     return search.catalog.of(category)
 
 
-def _make(search: BuildSearch, category: Category, old_build: Build, new_build: Build,
-          current: Component, candidate: Component, price_delta: int, score_delta: float) -> Alternative:
+def _make(
+    search: BuildSearch,
+    category: Category,
+    old_build: Build,
+    new_build: Build,
+    current: Component,
+    candidate: Component,
+    price_delta: int,
+    score_delta: float,
+) -> Alternative:
     extra = []
     for cat in ALTERNATIVE_CATEGORIES:
         if cat == category:

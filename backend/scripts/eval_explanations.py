@@ -17,6 +17,7 @@
 
 Базу данных и бэкенд запускать не нужно: сборки подбираются по каталогу из components.json.
 """
+
 import argparse
 import json
 import re
@@ -47,9 +48,12 @@ ROUNDING = 0.03  # «почти 20 000» при 20 200 ₽ — не ошибка
 
 SERVICE_WORDS = re.compile(
     r"\b(upgrades?|savings?|warnings?|worth_it|gaming_limiter|headroom\w*|price_share\w*|"
-    r"capacity_gb|vram_gb|has_igpu|current_platform|tier|json)\b", re.I)
+    r"capacity_gb|vram_gb|has_igpu|current_platform|tier|json)\b",
+    re.I,
+)
 INVENTED_SAVING_NEGATION = re.compile(
-    r"(нет|не\w*)[^.]{0,40}(сэконом|экономи)|(сэконом|экономи)\w*[^.]{0,30}(нет|не получится|нельзя|отсутству)")
+    r"(нет|не\w*)[^.]{0,40}(сэконом|экономи)|(сэконом|экономи)\w*[^.]{0,30}(нет|не получится|нельзя|отсутству)"
+)
 
 
 def numbers_in_text(text: str) -> set[int]:
@@ -74,8 +78,7 @@ def numbers_in(obj) -> set[int]:
 def known_numbers(facts: dict) -> set[int]:
     known = numbers_in(facts) | ALLOWED_NUMBERS
     # Модель может сложить суммы вариантов: «экономия на накопителе и корпусе — 6 500 ₽»
-    amounts = [max(numbers_in_text(a["text"]) - {0}, default=0)
-               for a in facts["upgrades"] + facts["savings"]]
+    amounts = [max(numbers_in_text(a["text"]) - {0}, default=0) for a in facts["upgrades"] + facts["savings"]]
     known |= {a + b for a, b in combinations(amounts, 2)}
     return known
 

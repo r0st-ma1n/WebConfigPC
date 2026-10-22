@@ -22,6 +22,7 @@
 (или в процессор сверх возможностей видеокарты), оценку не повышают, поэтому
 алгоритм сам выбирает сбалансированные пары.
 """
+
 from dataclasses import dataclass
 
 from app.balance import BALANCE_TOLERANCE, CPU_REQUIRED_FACTOR

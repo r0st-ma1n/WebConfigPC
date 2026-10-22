@@ -3,6 +3,7 @@
 Каждый тест идёт внутри транзакции, которая в конце откатывается: commit в коде
 приложения фиксирует только точку сохранения (SAVEPOINT), и база остаётся чистой.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import exists, select

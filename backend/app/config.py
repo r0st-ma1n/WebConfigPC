@@ -1,4 +1,5 @@
 """Настройки приложения. Читаются из переменных окружения и файла .env в корне проекта."""
+
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

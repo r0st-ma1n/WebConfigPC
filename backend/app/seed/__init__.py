@@ -1,4 +1,5 @@
 """Тестовые данные каталога комплектующих."""
+
 import json
 from pathlib import Path
 

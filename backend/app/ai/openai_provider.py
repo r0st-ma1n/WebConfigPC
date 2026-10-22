@@ -1,5 +1,6 @@
 """Провайдер для OpenAI и любых OpenAI-совместимых API (DeepSeek, локальные Ollama и LM Studio и т.п.).
 Адрес API задаётся в LLM_BASE_URL, модель — в LLM_MODEL (обязательно)."""
+
 import json
 import re
 import time
@@ -17,9 +18,9 @@ TEMPERATURE = 0.3
 # Сколько ждать модель. Read-таймаут — это время без новых данных от сервера: для ответа
 # целиком это вся генерация, для потока — ожидание очередного куска (включая первое слово,
 # которое локальная модель на слабой видеокарте выдаёт через 10+ секунд)
-PARSE_TIMEOUT = openai.Timeout(30.0, connect=5.0)    # пользователь ждёт, а разбор правилами мгновенный
-TEXT_TIMEOUT = openai.Timeout(120.0, connect=5.0)    # объяснение целиком, без потока
-STREAM_TIMEOUT = openai.Timeout(60.0, connect=5.0)   # пауза между кусками потока
+PARSE_TIMEOUT = openai.Timeout(30.0, connect=5.0)  # пользователь ждёт, а разбор правилами мгновенный
+TEXT_TIMEOUT = openai.Timeout(120.0, connect=5.0)  # объяснение целиком, без потока
+STREAM_TIMEOUT = openai.Timeout(60.0, connect=5.0)  # пауза между кусками потока
 
 # Способы запросить JSON, от самого простого к самому совместимому. Разные API поддерживают разное:
 # OpenAI и Ollama принимают json_object, LM Studio — только json_schema, а кто-то не знает ни того, ни другого
