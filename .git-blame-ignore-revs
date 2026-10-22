@@ -1,0 +1,5 @@
+# Массовое форматирование: git blame пропускает эти коммиты
+# (на GitHub — автоматически, локально: git config blame.ignoreRevsFile .git-blame-ignore-revs)
+
+# Ruff format: единый стиль кода бэкенда
+b8d547eff0e5b2514e10d79576c0541049b04ab5
