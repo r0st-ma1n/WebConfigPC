@@ -68,9 +68,18 @@ jobs:
       - run: npm test
       - name: Type check and build
         run: npm run build
+      # Браузер кэшируется по версии Playwright. Без --with-deps: системные библиотеки
+      # на раннере уже есть, а шрифты через apt иногда качаются по 10 минут
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: E2E tests
         run: |
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
           npm run test:e2e
 
   docker:
