@@ -1,6 +1,7 @@
 """ИИ: статус, разбор свободного запроса, объяснение сборки."""
 import asyncio
 import contextlib
+import contextvars
 import json
 import logging
 import threading
@@ -12,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from app.ai import service
 from app.ai.factory import get_provider
 from app.models import Component
+from app.rate_limit import limit_ai
 from app.recommender import Tier, evaluate_build
 from app.repository import build_from_ids, get_parts
 from app.schemas import AiStatusOut, ExplainIn, ExplainOut, ParseIn, ParseOut
@@ -30,7 +32,7 @@ def ai_status():
     return AiStatusOut(enabled=True, provider=provider.name, model=provider.model)
 
 
-@router.post("/parse", response_model=ParseOut)
+@router.post("/parse", response_model=ParseOut, dependencies=[Depends(limit_ai)])
 def parse(body: ParseIn, parts: list[Component] = Depends(get_parts)):
     params, source, notes = service.parse_request(body.text, parts)
     return ParseOut(params=params, source=source, notes=notes)
@@ -43,13 +45,13 @@ def _facts(body: ExplainIn, parts: list[Component]) -> dict:
     return evaluate_build(parts, body.to_request(), build, tier).facts
 
 
-@router.post("/explain", response_model=ExplainOut)
+@router.post("/explain", response_model=ExplainOut, dependencies=[Depends(limit_ai)])
 def explain(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
     text, source = service.explain(_facts(body, parts))
     return ExplainOut(text=text, source=source)
 
 
-@router.post("/explain/stream")
+@router.post("/explain/stream", dependencies=[Depends(limit_ai)])
 def explain_stream(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
     """То же объяснение, но текст приходит по мере генерации: NDJSON, одно событие
     на строку (формат событий — в service.explain_stream)."""
@@ -86,7 +88,8 @@ async def _ndjson(events: Generator[dict]) -> AsyncIterator[str]:
             events.close()  # закрываем в этом же потоке, где генератор работал
             put(None)
 
-    threading.Thread(target=pump, daemon=True).start()
+    # copy_context: записи лога из этого потока получают request-id запроса
+    threading.Thread(target=contextvars.copy_context().run, args=(pump,), daemon=True).start()
     try:
         while (event := await queue.get()) is not None:
             yield json.dumps(event, ensure_ascii=False) + "\n"
