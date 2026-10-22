@@ -1,21 +1,11 @@
-"""Модуль обновления цен — заглушка с готовым интерфейсом.
+"""Обновление цен из внешних источников.
 
-Сейчас цены хранятся в базе и заполняются из тестовых данных. Чтобы подключить
-реальный источник (парсер магазина, API поставщика, выгрузку CSV), достаточно:
-1. Написать класс с методом fetch_prices(), возвращающим список PriceQuote.
-2. Передать его в update_prices().
+Источник цен — любой класс с методом fetch_prices(), возвращающим список PriceQuote
+(протокол PriceProvider). Сейчас подключён прайс-лист в CSV (app/prices/csv_source.py);
+парсер магазина или API поставщика добавляются так же.
 
-Пример будущего парсера:
-
-    class ShopParser:
-        name = "shop"
-
-        def fetch_prices(self, components):
-            quotes = []
-            for c in components:
-                price = ...  # найти товар по c.brand + c.name и получить цену
-                quotes.append(PriceQuote(c.id, price, self.name))
-            return quotes
+Перед записью цены проверяются: слишком резкое изменение скорее говорит об ошибке
+в выгрузке (лишний ноль, цена за упаковку), поэтому такая цена не применяется и попадает в отчёт.
 """
 
 from dataclasses import dataclass, field
@@ -27,6 +17,9 @@ from sqlalchemy.orm import Session
 from app.models import Component
 from app.repository import load_parts
 
+# На какую долю цена может измениться за одно обновление (0.5 — на 50%)
+DEFAULT_MAX_CHANGE = 0.5
+
 
 @dataclass
 class PriceQuote:
@@ -37,33 +30,59 @@ class PriceQuote:
 
 
 class PriceProvider(Protocol):
-    """Интерфейс источника цен."""
+    """Интерфейс источника цен. В problems источник складывает строки, которые не смог разобрать."""
 
     name: str
+    problems: list[str]
 
     def fetch_prices(self, components: list[Component]) -> list[PriceQuote]: ...
 
 
-class StaticPriceProvider:
-    """Заглушка: возвращает текущие цены из базы, ничего не меняя."""
+@dataclass
+class PriceReport:
+    changed: int = 0
+    unchanged: int = 0
+    # Цены, которые не применены из-за слишком резкого изменения
+    suspicious: list[str] = field(default_factory=list)
+    # Ошибки источника: нераспознанные строки, неизвестные детали
+    problems: list[str] = field(default_factory=list)
 
-    name = "static"
+    def summary(self) -> str:
+        return (
+            f"изменено: {self.changed}, без изменений: {self.unchanged}, "
+            f"отклонено: {len(self.suspicious)}, ошибок в источнике: {len(self.problems)}"
+        )
 
-    def fetch_prices(self, components: list[Component]) -> list[PriceQuote]:
-        return [PriceQuote(c.id, c.price_rub, self.name) for c in components]
 
-
-def update_prices(session: Session, provider: PriceProvider) -> int:
-    """Применяет цены от провайдера к базе. Возвращает число изменённых позиций."""
-    parts = {p.id: p for p in load_parts(session)}
-    changed = 0
-    for quote in provider.fetch_prices(list(parts.values())):
-        part = parts.get(quote.component_id)
+def apply_quotes(parts: list[Component], quotes: list[PriceQuote], max_change: float | None) -> PriceReport:
+    """Применяет цены к деталям в памяти. max_change=None — без проверки резких изменений."""
+    by_id = {p.id: p for p in parts}
+    report = PriceReport()
+    for quote in quotes:
+        part = by_id.get(quote.component_id)
         if part is None or quote.price_rub <= 0:
             continue
-        if part.price_rub != quote.price_rub:
+        if part.price_rub == quote.price_rub:
+            report.unchanged += 1
+        elif max_change is not None and abs(quote.price_rub - part.price_rub) > part.price_rub * max_change:
+            report.suspicious.append(f"{part.title}: {part.price_rub} → {quote.price_rub} ₽")
+            continue
+        else:
             part.price_rub = quote.price_rub
-            changed += 1
+            report.changed += 1
         part.price_updated_at = quote.fetched_at
-    session.commit()
-    return changed
+    return report
+
+
+def update_prices(
+    session: Session, provider: PriceProvider, *, max_change: float | None = DEFAULT_MAX_CHANGE, dry_run: bool = False
+) -> PriceReport:
+    """Загружает цены от провайдера и записывает их в базу (при dry_run — только отчёт)."""
+    parts = load_parts(session)
+    report = apply_quotes(parts, provider.fetch_prices(parts), max_change)
+    report.problems = list(provider.problems)
+    if dry_run:
+        session.rollback()
+    else:
+        session.commit()
+    return report
