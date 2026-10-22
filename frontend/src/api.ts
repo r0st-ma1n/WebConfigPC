@@ -1,7 +1,7 @@
 // Клиент API бэкенда. Все запросы идут на /api (в разработке Vite проксирует их на :8000)
 import type {
   AiStatus, Category, CheckResult, Component, Option, ParseResult,
-  RecommendParams, RecommendResult, Recommendation, Resolution,
+  RecommendParams, RecommendResult, Recommendation, Resolution, SavedBuild,
 } from './types'
 
 export class ApiError extends Error {}
@@ -69,4 +69,7 @@ export const api = {
   aiStatus: () => request<AiStatus>('/ai/status'),
   parse: (text: string) => request<ParseResult>('/ai/parse', { text }),
   explainStream,
+  saveBuild: (params: RecommendParams, partIds: number[], tier: Recommendation['tier']) =>
+    request<{ slug: string }>('/builds', { ...params, part_ids: partIds, tier }),
+  savedBuild: (slug: string) => request<SavedBuild>(`/builds/${encodeURIComponent(slug)}`),
 }

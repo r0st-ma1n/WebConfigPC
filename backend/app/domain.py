@@ -3,7 +3,8 @@
 Сборка ничего не знает о базе данных: она хранит уже загруженные детали.
 Поэтому модули совместимости и подбора можно тестировать без PostgreSQL.
 """
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
+from functools import cached_property
 
 from app.models import Case, Category, Component, Cooler, Cpu, Gpu, Motherboard, Psu, Ram, Storage
 
@@ -20,8 +21,12 @@ SLOT_BY_CATEGORY: dict[Category, str] = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class Build:
+    """Сборка неизменяема: замена детали возвращает новую сборку. Поэтому производные
+    значения (ключ, цена, потребление) считаются один раз — при переборе вариантов
+    они запрашиваются у одной и той же сборки много раз."""
+
     cpu: Cpu | None = None
     gpu: Gpu | None = None
     motherboard: Motherboard | None = None
@@ -46,23 +51,33 @@ class Build:
         Накопитель добавляется к уже выбранным, остальные детали заменяют прежние.
         """
         if isinstance(part, Storage):
-            return replace(self, storages=[*self.storages, part])
-        build = replace(self)
-        setattr(build, SLOT_BY_CATEGORY[part.category], part)
-        return build
+            return self._copy(storages=[*self.storages, part])
+        return self._copy(**{SLOT_BY_CATEGORY[part.category]: part})
 
     def replace_part(self, part: Component) -> Build:
         """Как with_part, но накопитель заменяет все прежние (сборки из подбора
         содержат один накопитель). Используется при поиске замен."""
         if isinstance(part, Storage):
-            return replace(self, storages=[part])
+            return self._copy(storages=[part])
         return self.with_part(part)
+
+    def _copy(self, **changes: object) -> Build:
+        # Прямой вызов конструктора: dataclasses.replace в переборе заметно медленнее
+        slots = {"cpu": self.cpu, "gpu": self.gpu, "motherboard": self.motherboard, "ram": self.ram,
+                 "storages": self.storages, "psu": self.psu, "case": self.case, "cooler": self.cooler}
+        return Build(**(slots | changes))  # type: ignore[arg-type]
 
     def part_in_slot(self, category: Category) -> Component | None:
         slot = SLOT_BY_CATEGORY[category]
         if slot == "storages":
             return self.storages[0] if self.storages else None
         return getattr(self, slot)
+
+    @cached_property
+    def key(self) -> tuple[int, ...]:
+        """Состав сборки как ключ словаря. id уникальны во всём каталоге, поэтому
+        по набору id однозначно восстанавливается, какая деталь в каком слоте."""
+        return tuple(self.part_ids)
 
     @property
     def part_ids(self) -> list[int]:
@@ -73,11 +88,11 @@ class Build:
         single = [self.cpu, self.gpu, self.motherboard, self.ram, self.psu, self.case, self.cooler]
         return [p for p in single if p is not None] + list(self.storages)
 
-    @property
+    @cached_property
     def total_price(self) -> int:
         return sum(p.price_rub for p in self.parts)
 
-    @property
+    @cached_property
     def estimated_power_w(self) -> int:
         """Потребление сборки под нагрузкой: сумма потребления всех деталей.
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 import { ManualPage } from './pages/ManualPage'
 import { RecommendPage } from './pages/RecommendPage'
+import { SavedBuildPage } from './pages/SavedBuildPage'
 import type { AiStatus } from './types'
 import { Link, NavLink, Router, RouteView, usePath } from './router'
 
@@ -40,7 +41,8 @@ function AppRoutes({ ai }: { ai: AiStatus | null }) {
         результаты и выбранные детали. hidden — на обёртке без классов: класс grid его перебил бы */}
     <div hidden={path !== '/recommend'}><div className={pageLayout}><RecommendPage ai={ai}/></div></div>
     <div hidden={path !== '/manual'}><div className={pageLayout}><ManualPage/></div></div>
-    {!persistent && <RouteView path={path} routes={{ '/': <HomePage/>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/>}
+    {path.startsWith('/b/') && <div className={pageLayout}><SavedBuildPage key={path} slug={path.slice(3)} ai={ai}/></div>}
+    {!persistent && !path.startsWith('/b/') && <RouteView path={path} routes={{ '/': <HomePage/>, '/info': <InfoPage/> }} fallback={<div className="content-page not-found"><h1>Здесь пока ничего нет.</h1><Link className="btn btn-primary" to="/">На главную</Link></div>}/>}
   </main><Footer/></>
 }
 

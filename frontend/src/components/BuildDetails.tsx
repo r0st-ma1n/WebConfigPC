@@ -7,6 +7,7 @@ import { Alternatives } from './Alternatives'
 import { BudgetBar } from './BudgetBar'
 import { Issues } from './Issues'
 import { PartsList } from './PartsList'
+import { ShareBuild } from './ShareBuild'
 
 interface Props {
   rec: Recommendation
@@ -85,6 +86,7 @@ export function BuildDetails({ rec, allocation, params, aiEnabled, busy, onApply
           </div>
           <div className="build-total num">{rub(rec.total_price)}</div>
         </div>
+        <ShareBuild key={JSON.stringify([rec.parts.map((p) => p.id), rec.tier])} rec={rec} params={params} />
       </section>
 
       <section className="panel">

@@ -11,9 +11,9 @@ SQLAlchemy сам делает JOIN и по полю category понимает, 
 import enum
 from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, String, func
-from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
@@ -176,3 +176,42 @@ MODEL_BY_CATEGORY: dict[Category, type[Component]] = {
     Category.CASE: Case,
     Category.COOLER: Cooler,
 }
+
+
+# ---------- Сохранённые сборки ----------
+
+
+class SavedBuild(Base):
+    """Сборка, сохранённая пользователем, чтобы поделиться ссылкой /b/<slug>."""
+
+    __tablename__ = "saved_builds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Короткий случайный код для ссылки: по нему нельзя перебрать чужие сборки, как по id
+    slug: Mapped[str] = mapped_column(String(16), unique=True)
+    # Параметры подбора (бюджет, сценарий...): по ним сборка оценивается при открытии ссылки
+    params: Mapped[dict] = mapped_column(JSONB)
+    tier: Mapped[str | None] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    parts: Mapped[list[SavedBuildPart]] = relationship(
+        back_populates="build", cascade="all, delete-orphan", lazy="selectin", order_by="SavedBuildPart.position"
+    )
+
+
+class SavedBuildPart(Base):
+    """Деталь сохранённой сборки и её цена на момент сохранения.
+
+    Цены в каталоге меняются, а по сохранённой цене видно, насколько сборка подорожала."""
+
+    __tablename__ = "saved_build_parts"
+
+    build_id: Mapped[int] = mapped_column(ForeignKey("saved_builds.id", ondelete="CASCADE"), primary_key=True)
+    # Порядковый номер детали в сборке. Ключ не (build_id, component_id): в сборке
+    # может быть два одинаковых накопителя
+    position: Mapped[int] = mapped_column(primary_key=True)
+    # RESTRICT: деталь из каталога нельзя удалить, пока на неё ссылается сохранённая сборка
+    component_id: Mapped[int] = mapped_column(ForeignKey("components.id", ondelete="RESTRICT"), index=True)
+    price_rub: Mapped[int]
+
+    build: Mapped[SavedBuild] = relationship(back_populates="parts")

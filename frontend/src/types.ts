@@ -74,6 +74,15 @@ export interface Recommendation {
   facts: Record<string, unknown>
 }
 
+export interface SavedBuild {
+  slug: string
+  created_at: string
+  params: RecommendParams
+  /** Цена на момент сохранения; recommendation.total_price — по текущим ценам */
+  saved_price: number
+  recommendation: Recommendation
+}
+
 export interface RecommendResult {
   allocation: Record<Category, number>
   recommendations: Recommendation[]
