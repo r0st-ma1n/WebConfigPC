@@ -382,3 +382,18 @@ details.more .field + .field { margin-top: 12px; }
 .share-link .input { flex: 1 1 260px; min-width: 0; }
 .saved-page { display: grid; gap: 16px; }
 .saved-page h1 { margin: 0; }
+
+/* Вход и личный кабинет */
+.profile-button { display: grid; place-items: center; text-decoration: none; font-size: 13px; font-weight: 700; }
+.auth-form { display: grid; gap: 18px; max-width: 420px; }
+.field-hint { font-size: 12px; }
+.saved-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.saved-item { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; }
+.saved-title { color: var(--ink); font-weight: 600; text-decoration: none; }
+.saved-title:hover { color: var(--accent); }
+.saved-meta { font-size: 13px; margin-top: 4px; }
+.saved-price { font-weight: 600; }
+.account-actions { display: flex; gap: 20px; align-items: center; margin-top: 28px; }
+.share-note { font-size: 13px; flex-basis: 100%; }
+@media (max-width: 560px) { .saved-item { grid-template-columns: 1fr auto; } .saved-item .btn { grid-column: 1 / -1; justify-self: start; } }
+.auth-page .lead, .account-page .lead { margin: 0 0 28px; color: var(--ink-2); }
