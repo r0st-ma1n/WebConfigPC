@@ -7,13 +7,18 @@ import { rub, SCENARIO_TITLES } from '../format'
 import type {
   Alternative, AiStatus, Component, Platform, Recommendation, RecommendParams, RecommendResult, Resolution, Scenario,
 } from '../types'
-import { EXAMPLES, selectExample, updateRecommendParams } from '../recommendation-form.js'
 
 const DEFAULT_PARAMS: RecommendParams = {
   budget: 100_000, scenario: 'gaming', resolution: '1440p', platform: null, cpu_id: null, gpu_id: null,
 }
 const BUDGET_MIN = 30_000
 const BUDGET_MAX = 400_000
+// Первый пример — подсказка в поле ввода, остальные — ссылки под ним
+const EXAMPLES = [
+  'Хочу играть в 1440p до 120 тысяч',
+  'Компьютер для монтажа видео за 180к, лучше на Intel',
+  'Для учёбы и офиса, бюджет 45 000',
+]
 
 export function RecommendPage({ ai }: { ai: AiStatus | null }) {
   const [params, setParams] = useState<RecommendParams>(DEFAULT_PARAMS)
@@ -44,7 +49,7 @@ export function RecommendPage({ ai }: { ai: AiStatus | null }) {
     }
   }
 
-  const update = (patch: Partial<RecommendParams>) => setParams((p) => updateRecommendParams(p, patch))
+  const update = (patch: Partial<RecommendParams>) => setParams((p) => ({ ...p, ...patch }))
 
   async function runRecommend(p: RecommendParams) {
     setLoading('recommend')
@@ -120,7 +125,7 @@ export function RecommendPage({ ai }: { ai: AiStatus | null }) {
             />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 13 }}>
               {EXAMPLES.slice(1).map((ex) => (
-                <button key={ex} type="button" className="link-btn" onClick={() => setText(selectExample(ex))}>{ex}</button>
+                <button key={ex} type="button" className="link-btn" onClick={() => setText(ex)}>{ex}</button>
               ))}
             </div>
             <button className="btn btn-primary" disabled={loading !== null || text.trim().length < 3}>
