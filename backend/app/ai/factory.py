@@ -1,4 +1,5 @@
 """Выбор провайдера LLM по настройкам из .env."""
+
 import logging
 from functools import cache
 
@@ -18,9 +19,11 @@ def get_provider() -> LLMProvider | None:
     try:
         if kind == "anthropic":
             from app.ai.anthropic_provider import AnthropicProvider
+
             return AnthropicProvider(key, settings.llm_model)
         if kind == "openai":
             from app.ai.openai_provider import OpenAICompatibleProvider
+
             return OpenAICompatibleProvider(key, settings.llm_model, settings.llm_base_url)
     except ValueError as e:
         log.warning("ИИ отключён: %s", e)

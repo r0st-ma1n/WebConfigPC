@@ -17,6 +17,7 @@
                 quotes.append(PriceQuote(c.id, price, self.name))
             return quotes
 """
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol

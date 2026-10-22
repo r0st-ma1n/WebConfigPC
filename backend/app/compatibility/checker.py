@@ -1,4 +1,5 @@
 """Проверка сборки целиком и фильтр совместимых вариантов для ручного режима."""
+
 from dataclasses import dataclass
 
 from app.balance import Resolution

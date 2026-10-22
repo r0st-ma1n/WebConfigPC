@@ -1,4 +1,5 @@
 """Smoke-тесты API. Каталог берётся из JSON вместо базы (подмена зависимости get_parts)."""
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -89,6 +90,7 @@ def test_ai_endpoints_without_key(client, monkeypatch):
     # Тест не должен зависеть от того, прописан ли ключ в .env
     import app.ai.service
     import app.api.ai
+
     monkeypatch.setattr(app.api.ai, "get_provider", lambda: None)
     monkeypatch.setattr(app.ai.service, "get_provider", lambda: None)
 

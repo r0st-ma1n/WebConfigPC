@@ -1,4 +1,5 @@
 """Подключение к базе данных."""
+
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine

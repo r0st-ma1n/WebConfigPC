@@ -6,6 +6,7 @@
 Счётчики хранятся в памяти процесса: для одного экземпляра бэкенда этого достаточно.
 При нескольких экземплярах счётчики нужно перенести в общее хранилище (например, Redis).
 """
+
 import math
 import threading
 import time
@@ -54,6 +55,7 @@ def limit_ai(request: Request) -> None:
     retry_after = ai_limiter.hit(client)
     if retry_after is not None:
         raise HTTPException(
-            429, "Слишком много запросов к ИИ. Попробуйте через минуту.",
+            429,
+            "Слишком много запросов к ИИ. Попробуйте через минуту.",
             headers={"Retry-After": str(math.ceil(retry_after))},
         )

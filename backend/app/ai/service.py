@@ -3,6 +3,7 @@
 Каждая функция сначала пробует LLM, а при её отсутствии или ошибке
 переходит на вариант без ИИ. Пользователь всегда получает результат.
 """
+
 import json
 import logging
 import re
@@ -54,6 +55,7 @@ PARSE_SCHEMA = {
 
 class _LLMParse(BaseModel):
     """Проверка ответа модели: если модель вернула что-то не то, ответ отбрасывается."""
+
     budget: int | None
     scenario: Scenario | None
     resolution: Resolution | None
@@ -207,17 +209,21 @@ def _facts_for_llm(f: dict) -> dict:
         "цена и бюджет": f"дороже бюджета на {format_rub(over)}" if over else "в пределах бюджета",
         "больше всего денег вложено в": f"{top} ({share[top]}% цены)" if top else None,
         "процессор": f"{cpu['title']}: {cpu['cores']} ядер, {cpu['threads']} потоков, "
-                     + ("есть встроенная графика" if cpu["has_igpu"] else "без встроенной графики")
-                     + (f", современная платформа {cpu['socket']} — процессор можно будет обновить"
-                        if cpu["current_platform"] else f", платформа {cpu['socket']}"),
-        "видеокарта": f"{gpu['title']}, {gpu['vram_gb']} ГБ видеопамяти" if gpu
-                      else "нет, изображение выводит встроенная графика процессора",
+        + ("есть встроенная графика" if cpu["has_igpu"] else "без встроенной графики")
+        + (
+            f", современная платформа {cpu['socket']} — процессор можно будет обновить"
+            if cpu["current_platform"]
+            else f", платформа {cpu['socket']}"
+        ),
+        "видеокарта": f"{gpu['title']}, {gpu['vram_gb']} ГБ видеопамяти"
+        if gpu
+        else "нет, изображение выводит встроенная графика процессора",
         "баланс в играх": _LIMITER_TITLES[f["gaming_limiter"]] if f["resolution"] else None,
         "память": f"{ram['capacity_gb']} ГБ {ram['type']} ({ram['modules']} шт.), {ram['speed_mhz']} МГц",
         "остальные детали": other_parts or None,
         "накопитель": f"{storage['title']} ({storage['kind']}, {storage['capacity_gb']} ГБ)",
         "блок питания": f"{psu['title']}, {psu['wattage']} Вт, сертификат {psu['efficiency']}; "
-                        f"сборка потребляет около {f['power_w']} Вт, запас мощности {psu['headroom_pct']}%",
+        f"сборка потребляет около {f['power_w']} Вт, запас мощности {psu['headroom_pct']}%",
         "предупреждения": f["warnings"] or "нет",
         "доплата": texts([u for u in f["upgrades"] if u["worth_it"]]),
         "доплата не стоит своих денег": texts([u for u in f["upgrades"] if not u["worth_it"]]),

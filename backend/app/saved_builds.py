@@ -1,4 +1,5 @@
 """Сохранённые сборки: запись в базу и чтение по короткому коду из ссылки."""
+
 import logging
 import secrets
 
@@ -31,8 +32,10 @@ def create(session: Session, parts: list[Component], body: SaveBuildIn) -> Saved
             slug=secrets.token_urlsafe(SLUG_BYTES),
             params=params.model_dump(mode="json"),
             tier=body.tier.value if body.tier else None,
-            parts=[SavedBuildPart(position=i, component_id=pid, price_rub=by_id[pid].price_rub)
-                   for i, pid in enumerate(body.part_ids)],
+            parts=[
+                SavedBuildPart(position=i, component_id=pid, price_rub=by_id[pid].price_rub)
+                for i, pid in enumerate(body.part_ids)
+            ],
         )
         session.add(saved)
         try:

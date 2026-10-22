@@ -1,4 +1,5 @@
 """Каталог комплектующих и ручной режим сборки."""
+
 from fastapi import APIRouter, Depends
 
 from app.compatibility import candidate_errors, check_build
@@ -25,11 +26,13 @@ def component_options(body: OptionsIn, parts: list[Component] = Depends(get_part
     options = []
     for part in (p for p in parts if p.category == body.category):
         errors = candidate_errors(build, part)
-        options.append(OptionOut(
-            component=ComponentOut.from_model(part),
-            compatible=not errors,
-            reasons=[e.message for e in errors],
-        ))
+        options.append(
+            OptionOut(
+                component=ComponentOut.from_model(part),
+                compatible=not errors,
+                reasons=[e.message for e in errors],
+            )
+        )
     options.sort(key=lambda o: (not o.compatible, o.component.price_rub))
     return options
 

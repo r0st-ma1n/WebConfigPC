@@ -1,4 +1,5 @@
 """Сохранённые сборки: ссылка, которой можно поделиться."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -17,15 +18,13 @@ Slug = Annotated[str, Path(max_length=16, pattern=r"^[A-Za-z0-9_-]+$")]
 
 
 @router.post("", status_code=201, response_model=SaveBuildOut)
-def save_build(body: SaveBuildIn, session: Session = Depends(get_session),
-               parts: list[Component] = Depends(get_parts)):
+def save_build(body: SaveBuildIn, session: Session = Depends(get_session), parts: list[Component] = Depends(get_parts)):
     saved = saved_builds.create(session, parts, body)
     return SaveBuildOut(slug=saved.slug)
 
 
 @router.get("/{slug}", response_model=SavedBuildOut)
-def get_saved_build(slug: Slug, session: Session = Depends(get_session),
-                    parts: list[Component] = Depends(get_parts)):
+def get_saved_build(slug: Slug, session: Session = Depends(get_session), parts: list[Component] = Depends(get_parts)):
     """Сохранённая сборка, оценённая заново по текущим ценам каталога.
     Цена на момент сохранения возвращается отдельно — по ней видно, как изменилась стоимость."""
     saved = saved_builds.get(session, slug)

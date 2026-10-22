@@ -1,4 +1,5 @@
 """Тесты рекомендательной системы на реальном тестовом каталоге (без базы данных)."""
+
 import itertools
 from dataclasses import FrozenInstanceError
 from functools import cache
@@ -21,8 +22,14 @@ BY_NAME = {p.name: p for p in CATALOG}
 
 
 @cache
-def run(budget: int, scenario: Scenario, resolution: Resolution = Resolution.QHD,
-        platform: Platform | None = None, cpu_id: int | None = None, gpu_id: int | None = None):
+def run(
+    budget: int,
+    scenario: Scenario,
+    resolution: Resolution = Resolution.QHD,
+    platform: Platform | None = None,
+    cpu_id: int | None = None,
+    gpu_id: int | None = None,
+):
     """Подбор с кэшем: один и тот же запрос в разных тестах считается один раз."""
     return recommend(CATALOG, RecommendRequest(budget, scenario, resolution, platform, cpu_id, gpu_id))
 
@@ -37,6 +44,7 @@ TYPICAL_REQUESTS = [
 
 
 # ---------- Распределение бюджета ----------
+
 
 @pytest.mark.parametrize("scenario", list(Scenario))
 @pytest.mark.parametrize("resolution", list(Resolution))
@@ -54,6 +62,7 @@ def test_office_budget_has_no_gpu_share():
 
 
 # ---------- Модель оценки ----------
+
 
 def test_gaming_performance_limited_by_weaker_part():
     req = RecommendRequest(100_000, Scenario.GAMING, Resolution.QHD)
@@ -80,14 +89,17 @@ def test_extra_ram_is_useless_for_gaming_but_useful_for_workstation():
 
 def test_single_channel_ram_penalized_more_with_igpu():
     single, dual = f.ram(capacity_gb=16, modules=1), f.ram(capacity_gb=16, modules=2)
-    with_gpu = (ram_metric(f.full_build(ram=dual), Scenario.OFFICE)
-                - ram_metric(f.full_build(ram=single), Scenario.OFFICE))
-    igpu = (ram_metric(f.full_build(ram=dual, gpu=None), Scenario.OFFICE)
-            - ram_metric(f.full_build(ram=single, gpu=None), Scenario.OFFICE))
+    with_gpu = ram_metric(f.full_build(ram=dual), Scenario.OFFICE) - ram_metric(
+        f.full_build(ram=single), Scenario.OFFICE
+    )
+    igpu = ram_metric(f.full_build(ram=dual, gpu=None), Scenario.OFFICE) - ram_metric(
+        f.full_build(ram=single, gpu=None), Scenario.OFFICE
+    )
     assert igpu > with_gpu > 0
 
 
 # ---------- Основные свойства подбора ----------
+
 
 @pytest.mark.parametrize(("budget", "scenario", "resolution"), TYPICAL_REQUESTS)
 def test_builds_are_compatible_and_within_tier_limits(budget, scenario, resolution):
@@ -116,6 +128,7 @@ def test_optimal_tier_always_present():
 def test_higher_budget_gives_better_build():
     def optimal_score(budget):
         return next(r.score for r in run(budget, Scenario.GAMING).recommendations if r.tier == Tier.OPTIMAL)
+
     assert optimal_score(80_000) < optimal_score(120_000) < optimal_score(200_000)
 
 
@@ -152,6 +165,7 @@ def test_workstation_prefers_multicore_cpu():
 
 # ---------- Предпочтения пользователя ----------
 
+
 @pytest.mark.parametrize("platform", list(Platform))
 def test_platform_preference(platform):
     for rec in run(120_000, Scenario.GAMING, platform=platform).recommendations:
@@ -187,6 +201,7 @@ def test_zero_budget():
 
 
 # ---------- Замены ----------
+
 
 @pytest.mark.parametrize(("budget", "scenario", "resolution"), TYPICAL_REQUESTS)
 def test_alternatives_are_valid(budget, scenario, resolution):
@@ -229,6 +244,7 @@ def test_some_alternatives_exist():
 
 # ---------- Объяснения ----------
 
+
 def test_gaming_explanation_mentions_key_facts():
     rec = next(r for r in run(120_000, Scenario.GAMING).recommendations if r.tier == Tier.OPTIMAL)
     text = rec.explanation
@@ -244,6 +260,7 @@ def test_office_explanation_mentions_integrated_graphics():
 
 def test_facts_are_json_serializable():
     import json
+
     for rec in run(120_000, Scenario.GAMING).recommendations:
         json.dumps(rec.facts, ensure_ascii=False)
 

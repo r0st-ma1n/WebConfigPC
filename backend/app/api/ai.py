@@ -1,4 +1,5 @@
 """ИИ: статус, разбор свободного запроса, объяснение сборки."""
+
 import asyncio
 import contextlib
 import contextvars

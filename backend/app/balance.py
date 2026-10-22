@@ -12,6 +12,7 @@
 Ryzen 5 7500F + RX 9070 XT, Ryzen 7 9800X3D + RTX 5090 — сбалансированные пары,
 а Ryzen 5 5600 + RTX 5080 уже упирается в процессор.
 """
+
 from dataclasses import dataclass
 from enum import StrEnum
 
