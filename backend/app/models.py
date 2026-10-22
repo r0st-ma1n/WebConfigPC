@@ -179,6 +179,36 @@ MODEL_BY_CATEGORY: dict[Category, type[Component]] = {
 }
 
 
+# ---------- Пользователи ----------
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Хранится в нижнем регистре: Ivan@Mail.ru и ivan@mail.ru — один и тот же адрес
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserSession(Base):
+    """Вход пользователя на одном устройстве.
+
+    Сам токен лежит только в cookie браузера, в базе — его SHA-256: утечка таблицы
+    не позволит войти под чужой сессией. Удаление строки — мгновенный выход."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 # ---------- Сохранённые сборки ----------
 
 
@@ -194,6 +224,9 @@ class SavedBuild(Base):
     params: Mapped[dict] = mapped_column(JSONB)
     tier: Mapped[str | None] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Владелец — для списка «Мои сборки». Сохранять можно и без входа, тогда владельца нет.
+    # SET NULL: ссылки, которыми уже поделились, продолжают работать и без пользователя
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
 
     parts: Mapped[list[SavedBuildPart]] = relationship(
         back_populates="build", cascade="all, delete-orphan", lazy="selectin", order_by="SavedBuildPart.position"
