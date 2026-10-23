@@ -1,0 +1,1673 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Конфигуратор ПК",
+    "description": "Подбор сборок ПК под бюджет и сценарий с объяснением выбора",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/components": {
+      "get": {
+        "tags": [
+          "Комплектующие"
+        ],
+        "summary": "List Components",
+        "operationId": "list_components_api_components_get",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Category"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComponentOut"
+                  },
+                  "title": "Response List Components Api Components Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/components/options": {
+      "post": {
+        "tags": [
+          "Комплектующие"
+        ],
+        "summary": "Component Options",
+        "description": "Варианты для шага ручной сборки: все детали категории с отметкой совместимости.\n\nСовместимые идут первыми, внутри — по цене. Несовместимые возвращаются с причиной:\nфронтенд по умолчанию их скрывает, но может показать, почему деталь не подходит.",
+        "operationId": "component_options_api_components_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptionsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OptionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Component Options Api Components Options Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/compatibility/check": {
+      "post": {
+        "tags": [
+          "Комплектующие"
+        ],
+        "summary": "Check Compatibility",
+        "operationId": "check_compatibility_api_compatibility_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommend": {
+      "post": {
+        "tags": [
+          "Рекомендации"
+        ],
+        "summary": "Recommend Builds",
+        "operationId": "recommend_builds_api_recommend_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecommendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommend/evaluate": {
+      "post": {
+        "tags": [
+          "Рекомендации"
+        ],
+        "summary": "Evaluate",
+        "description": "Оценка конкретной сборки: используется, когда пользователь применяет замену.",
+        "operationId": "evaluate_api_recommend_evaluate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/status": {
+      "get": {
+        "tags": [
+          "ИИ"
+        ],
+        "summary": "Ai Status",
+        "description": "Подключена ли LLM. Фронтенд по этому флагу решает, что показывать.",
+        "operationId": "ai_status_api_ai_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatusOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/parse": {
+      "post": {
+        "tags": [
+          "ИИ"
+        ],
+        "summary": "Parse",
+        "operationId": "parse_api_ai_parse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/explain": {
+      "post": {
+        "tags": [
+          "ИИ"
+        ],
+        "summary": "Explain",
+        "operationId": "explain_api_ai_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/explain/stream": {
+      "post": {
+        "tags": [
+          "ИИ"
+        ],
+        "summary": "Explain Stream",
+        "description": "То же объяснение, но текст приходит по мере генерации: NDJSON, одно событие\nна строку (формат событий — в service.explain_stream).",
+        "operationId": "explain_stream_api_ai_explain_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Пользователи"
+        ],
+        "summary": "Register",
+        "operationId": "register_api_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Пользователи"
+        ],
+        "summary": "Login",
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Пользователи"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout-all": {
+      "post": {
+        "tags": [
+          "Пользователи"
+        ],
+        "summary": "Logout Everywhere",
+        "description": "Завершает все сессии пользователя, включая текущую.",
+        "operationId": "logout_everywhere_api_auth_logout_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Пользователи"
+        ],
+        "summary": "Me",
+        "operationId": "me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds": {
+      "get": {
+        "tags": [
+          "Сохранённые сборки"
+        ],
+        "summary": "My Builds",
+        "operationId": "my_builds_api_builds_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedBuildSummaryOut"
+                  },
+                  "type": "array",
+                  "title": "Response My Builds Api Builds Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Сохранённые сборки"
+        ],
+        "summary": "Save Build",
+        "description": "Сохранить может и гость; сборка вошедшего пользователя попадает в «Мои сборки».",
+        "operationId": "save_build_api_builds_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBuildIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveBuildOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/builds/{slug}": {
+      "get": {
+        "tags": [
+          "Сохранённые сборки"
+        ],
+        "summary": "Get Saved Build",
+        "description": "Сохранённая сборка, оценённая заново по текущим ценам каталога.\nЦена на момент сохранения возвращается отдельно — по ней видно, как изменилась стоимость.",
+        "operationId": "get_saved_build_api_builds__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedBuildOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Сохранённые сборки"
+        ],
+        "summary": "Delete Build",
+        "operationId": "delete_build_api_builds__slug__delete",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 16,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Служебное"
+        ],
+        "summary": "Health",
+        "description": "Процесс жив (liveness): отвечает, даже если база недоступна.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "tags": [
+          "Служебное"
+        ],
+        "summary": "Ready",
+        "description": "Готов обслуживать запросы (readiness): база отвечает.\n\nСостояние Redis только сообщается: без него лимиты и кэш каталога работают\nв памяти процесса, поэтому недоступный Redis не повод снимать экземпляр с балансировки.",
+        "operationId": "ready_api_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AiStatusOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "provider",
+          "model"
+        ],
+        "title": "AiStatusOut"
+      },
+      "AlternativeOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "upgrade",
+              "saving"
+            ],
+            "title": "Kind"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "price_delta": {
+            "type": "integer",
+            "title": "Price Delta"
+          },
+          "score_delta_pct": {
+            "type": "number",
+            "title": "Score Delta Pct"
+          },
+          "worth_it": {
+            "type": "boolean",
+            "title": "Worth It"
+          },
+          "new_part": {
+            "$ref": "#/components/schemas/ComponentOut"
+          },
+          "also_changed": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentOut"
+            },
+            "type": "array",
+            "title": "Also Changed"
+          },
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "category",
+          "text",
+          "price_delta",
+          "score_delta_pct",
+          "worth_it",
+          "new_part",
+          "also_changed",
+          "part_ids"
+        ],
+        "title": "AlternativeOut"
+      },
+      "Category": {
+        "type": "string",
+        "enum": [
+          "cpu",
+          "gpu",
+          "motherboard",
+          "ram",
+          "storage",
+          "psu",
+          "case",
+          "cooler"
+        ],
+        "title": "Category"
+      },
+      "CheckIn": {
+        "properties": {
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": false
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Resolution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "1440p"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_ids"
+        ],
+        "title": "CheckIn"
+      },
+      "CheckOut": {
+        "properties": {
+          "is_compatible": {
+            "type": "boolean",
+            "title": "Is Compatible"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueOut"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "total_price": {
+            "type": "integer",
+            "title": "Total Price"
+          },
+          "estimated_power_w": {
+            "type": "integer",
+            "title": "Estimated Power W"
+          },
+          "recommended_psu_w": {
+            "type": "integer",
+            "title": "Recommended Psu W"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_compatible",
+          "issues",
+          "total_price",
+          "estimated_power_w",
+          "recommended_psu_w"
+        ],
+        "title": "CheckOut"
+      },
+      "ComponentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "brand": {
+            "type": "string",
+            "title": "Brand"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "price_rub": {
+            "type": "integer",
+            "title": "Price Rub"
+          },
+          "perf_score": {
+            "type": "integer",
+            "title": "Perf Score"
+          },
+          "power_w": {
+            "type": "integer",
+            "title": "Power W"
+          },
+          "specs": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Specs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "brand",
+          "name",
+          "title",
+          "price_rub",
+          "perf_score",
+          "power_w",
+          "specs"
+        ],
+        "title": "ComponentOut"
+      },
+      "CredentialsIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "CredentialsIn"
+      },
+      "EvaluateIn": {
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "maximum": 2000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Budget",
+            "description": "Бюджет, ₽"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/Resolution",
+            "default": "1440p"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Id"
+          },
+          "gpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Id"
+          },
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget",
+          "scenario",
+          "part_ids"
+        ],
+        "title": "EvaluateIn",
+        "description": "Оценить конкретную сборку (например, после применения замены)."
+      },
+      "ExplainIn": {
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "maximum": 2000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Budget",
+            "description": "Бюджет, ₽"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/Resolution",
+            "default": "1440p"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Id"
+          },
+          "gpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Id"
+          },
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Tier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget",
+          "scenario",
+          "part_ids"
+        ],
+        "title": "ExplainIn"
+      },
+      "ExplainOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "template"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "source"
+        ],
+        "title": "ExplainOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IssueOut": {
+        "properties": {
+          "level": {
+            "$ref": "#/components/schemas/Level"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "code",
+          "message",
+          "part_ids"
+        ],
+        "title": "IssueOut"
+      },
+      "Level": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning"
+        ],
+        "title": "Level"
+      },
+      "OptionOut": {
+        "properties": {
+          "component": {
+            "$ref": "#/components/schemas/ComponentOut"
+          },
+          "compatible": {
+            "type": "boolean",
+            "title": "Compatible"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "component",
+          "compatible",
+          "reasons"
+        ],
+        "title": "OptionOut"
+      },
+      "OptionsIn": {
+        "properties": {
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Part Ids",
+            "description": "Уже выбранные детали (кроме той, что выбирается сейчас)"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          }
+        },
+        "type": "object",
+        "required": [
+          "part_ids",
+          "category"
+        ],
+        "title": "OptionsIn"
+      },
+      "ParseIn": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ParseIn"
+      },
+      "ParseOut": {
+        "properties": {
+          "params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecommendIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "rules"
+            ],
+            "title": "Source"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "params",
+          "source",
+          "notes"
+        ],
+        "title": "ParseOut"
+      },
+      "Platform": {
+        "type": "string",
+        "enum": [
+          "amd",
+          "intel"
+        ],
+        "title": "Platform"
+      },
+      "RecommendIn": {
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "maximum": 2000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Budget",
+            "description": "Бюджет, ₽"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/Resolution",
+            "default": "1440p"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Id"
+          },
+          "gpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget",
+          "scenario"
+        ],
+        "title": "RecommendIn"
+      },
+      "RecommendOut": {
+        "properties": {
+          "allocation": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "object",
+            "title": "Allocation"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationOut"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allocation",
+          "recommendations"
+        ],
+        "title": "RecommendOut"
+      },
+      "RecommendationOut": {
+        "properties": {
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Tier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentOut"
+            },
+            "type": "array",
+            "title": "Parts"
+          },
+          "total_price": {
+            "type": "integer",
+            "title": "Total Price"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "score_breakdown": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Score Breakdown"
+          },
+          "check": {
+            "$ref": "#/components/schemas/CheckOut"
+          },
+          "upgrades": {
+            "items": {
+              "$ref": "#/components/schemas/AlternativeOut"
+            },
+            "type": "array",
+            "title": "Upgrades"
+          },
+          "savings": {
+            "items": {
+              "$ref": "#/components/schemas/AlternativeOut"
+            },
+            "type": "array",
+            "title": "Savings"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "explanation_source": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "template"
+            ],
+            "title": "Explanation Source",
+            "default": "template"
+          },
+          "facts": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Facts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tier",
+          "title",
+          "parts",
+          "total_price",
+          "score",
+          "score_breakdown",
+          "check",
+          "upgrades",
+          "savings",
+          "explanation",
+          "facts"
+        ],
+        "title": "RecommendationOut"
+      },
+      "Resolution": {
+        "type": "string",
+        "enum": [
+          "1080p",
+          "1440p",
+          "4k"
+        ],
+        "title": "Resolution"
+      },
+      "SaveBuildIn": {
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "maximum": 2000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Budget",
+            "description": "Бюджет, ₽"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/Scenario"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/Resolution",
+            "default": "1440p"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Id"
+          },
+          "gpu_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Id"
+          },
+          "part_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Part Ids"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Tier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "budget",
+          "scenario",
+          "part_ids"
+        ],
+        "title": "SaveBuildIn",
+        "description": "Сборка и параметры подбора, с которыми её открыть по ссылке."
+      },
+      "SaveBuildOut": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug"
+        ],
+        "title": "SaveBuildOut"
+      },
+      "SavedBuildOut": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "params": {
+            "$ref": "#/components/schemas/RecommendIn"
+          },
+          "saved_price": {
+            "type": "integer",
+            "title": "Saved Price"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/RecommendationOut"
+          },
+          "owned": {
+            "type": "boolean",
+            "title": "Owned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "created_at",
+          "params",
+          "saved_price",
+          "recommendation",
+          "owned"
+        ],
+        "title": "SavedBuildOut"
+      },
+      "SavedBuildSummaryOut": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "params": {
+            "$ref": "#/components/schemas/RecommendIn"
+          },
+          "saved_price": {
+            "type": "integer",
+            "title": "Saved Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "created_at",
+          "title",
+          "params",
+          "saved_price"
+        ],
+        "title": "SavedBuildSummaryOut",
+        "description": "Строка списка «Мои сборки»: без оценки, только то, что видно в списке."
+      },
+      "Scenario": {
+        "type": "string",
+        "enum": [
+          "gaming",
+          "workstation",
+          "office"
+        ],
+        "title": "Scenario"
+      },
+      "Tier": {
+        "type": "string",
+        "enum": [
+          "cheaper",
+          "optimal",
+          "headroom"
+        ],
+        "title": "Tier",
+        "description": "Три варианта сборки, которые предлагает система."
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
