@@ -27,4 +27,6 @@ EXPOSE 8000
 # Миграции и начальные данные при каждом старте: оба шага идемпотентны.
 # Бэкенд доступен только из сети Compose, поэтому IP клиента из X-Forwarded-For (от nginx)
 # можно принимать от любого адреса. Журнал запросов пишет само приложение (с request-id).
-CMD ["sh", "-c", "alembic upgrade head && python -m app.seed --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=* --no-access-log"]
+# Папка метрик воркеров (PROMETHEUS_MULTIPROC_DIR, см. app/metrics.py) очищается при старте:
+# файлы прошлого запуска исказили бы счётчики
+CMD ["sh", "-c", "if [ -n \"$PROMETHEUS_MULTIPROC_DIR\" ]; then rm -rf \"$PROMETHEUS_MULTIPROC_DIR\" && mkdir -p \"$PROMETHEUS_MULTIPROC_DIR\"; fi && alembic upgrade head && python -m app.seed --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=* --no-access-log"]

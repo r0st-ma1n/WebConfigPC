@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from app.ai import service
 from app.ai.factory import get_provider
+from app.metrics import AI_RESPONSES
 from app.models import Component
 from app.rate_limit import limit_ai
 from app.recommender import evaluate_build
@@ -36,6 +37,7 @@ def ai_status():
 @router.post("/parse", response_model=ParseOut, dependencies=[Depends(limit_ai)])
 def parse(body: ParseIn, parts: list[Component] = Depends(get_parts)):
     params, source, notes = service.parse_request(body.text, parts)
+    AI_RESPONSES.labels("parse", source).inc()
     return ParseOut(params=params, source=source, notes=notes)
 
 
@@ -48,6 +50,7 @@ def _facts(body: ExplainIn, parts: list[Component]) -> dict:
 @router.post("/explain", response_model=ExplainOut, dependencies=[Depends(limit_ai)])
 def explain(body: ExplainIn, parts: list[Component] = Depends(get_parts)):
     text, source = service.explain(_facts(body, parts))
+    AI_RESPONSES.labels("explain", source).inc()
     return ExplainOut(text=text, source=source)
 
 
@@ -56,8 +59,20 @@ def explain_stream(body: ExplainIn, parts: list[Component] = Depends(get_parts))
     """То же объяснение, но текст приходит по мере генерации: NDJSON, одно событие
     на строку (формат событий — в service.explain_stream)."""
     # Факты считаются до ответа: ошибки подбора вернутся обычным кодом 422, а не посреди потока
-    events = service.explain_stream(_facts(body, parts))
+    events = _counted(service.explain_stream(_facts(body, parts)))
     return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
+
+
+def _counted(events: Generator[dict]) -> Generator[dict]:
+    """Учитывает в метриках, кто в итоге написал объяснение: модель или шаблон."""
+    try:
+        for event in events:
+            if event.get("done"):
+                AI_RESPONSES.labels("explain", event["source"]).inc()
+            yield event
+    finally:
+        # Клиент ушёл — закрытие должно дойти до генератора с соединением к LLM
+        events.close()
 
 
 async def _ndjson(events: Generator[dict]) -> AsyncIterator[str]:
