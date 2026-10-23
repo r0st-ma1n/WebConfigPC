@@ -70,7 +70,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Recommend Builds */
+        /**
+         * Recommend Builds
+         * @description Заголовок X-Cache: HIT — ответ из кэша (см. response_cache.py), MISS — посчитан заново.
+         */
         post: operations["recommend_builds_api_recommend_post"];
         delete?: never;
         options?: never;

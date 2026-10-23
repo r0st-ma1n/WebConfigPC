@@ -152,6 +152,7 @@
           "Рекомендации"
         ],
         "summary": "Recommend Builds",
+        "description": "Заголовок X-Cache: HIT — ответ из кэша (см. response_cache.py), MISS — посчитан заново.",
         "operationId": "recommend_builds_api_recommend_post",
         "requestBody": {
           "content": {
