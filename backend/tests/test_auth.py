@@ -12,6 +12,7 @@ from app.db import get_session
 from app.main import app
 from app.models import User, UserSession
 from app.rate_limit import RateLimiter
+from app.repository import get_parts, load_parts
 
 PASSWORD = "correct horse battery"
 REQUEST = {"budget": 120_000, "scenario": "gaming", "resolution": "1440p"}
@@ -22,6 +23,8 @@ def make_client(session, monkeypatch):
     """Несколько клиентов — как несколько браузеров: у каждого свои cookie."""
     monkeypatch.setattr(rate_limit, "auth_limiter", RateLimiter(0))
     app.dependency_overrides[get_session] = lambda: session
+    # Каталог из той же транзакции теста, а не из общего кэша: тест меняет цены без commit
+    app.dependency_overrides[get_parts] = lambda: load_parts(session)
     clients: list[TestClient] = []
 
     def make() -> TestClient:

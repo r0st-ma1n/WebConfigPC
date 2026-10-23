@@ -2,6 +2,7 @@
 
 import logging
 
+import redis
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +15,8 @@ from app.config import settings
 from app.db import get_session
 from app.observability import RequestContextMiddleware, setup_logging
 from app.recommender import RecommendError
+from app.redis_client import breaker as redis_breaker
+from app.redis_client import get_redis
 
 setup_logging(settings.log_json, settings.log_level)
 log = logging.getLogger(__name__)
@@ -58,10 +61,30 @@ def health():
 
 @app.get("/api/health/ready", tags=["Служебное"])
 def ready(session: Session = Depends(get_session)):
-    """Готов обслуживать запросы (readiness): база отвечает."""
+    """Готов обслуживать запросы (readiness): база отвечает.
+
+    Состояние Redis только сообщается: без него лимиты и кэш каталога работают
+    в памяти процесса, поэтому недоступный Redis не повод снимать экземпляр с балансировки."""
+    redis_status = _redis_status()
     try:
         session.execute(text("SELECT 1"))
     except SQLAlchemyError:
         log.exception("База данных недоступна")
-        return JSONResponse(status_code=503, content={"status": "unavailable", "database": "error"})
-    return {"status": "ok", "database": "ok"}
+        return JSONResponse(
+            status_code=503, content={"status": "unavailable", "database": "error", "redis": redis_status}
+        )
+    return {"status": "ok", "database": "ok", "redis": redis_status}
+
+
+def _redis_status() -> str:
+    client = get_redis()
+    if client is None:
+        return "disabled"
+    if redis_breaker.tripped:  # Redis уже проверяет фоновый поток, ждать таймаута незачем
+        return "error"
+    try:
+        client.ping()
+    except redis.RedisError as e:
+        redis_breaker.trip(e)
+        return "error"
+    return "ok"
