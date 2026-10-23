@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import SessionLocal
 from app.domain import Build
+from app.metrics import CATALOG_RELOADS
 from app.models import Component
 from app.redis_client import breaker, get_redis
 
@@ -98,6 +99,7 @@ class CatalogCache:
             parts = self._parts
             if parts is None or not self._fresh(version):
                 parts = self.loader()
+                CATALOG_RELOADS.inc()
                 self._parts, self._version, self._loaded_at = parts, version, self.clock()
             return parts
 

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, Response
 
 from app import response_cache
+from app.metrics import RECOMMEND_CACHE, RECOMMEND_DURATION, Timer
 from app.models import Component
 from app.recommender import evaluate_build, recommend
 from app.repository import build_from_ids, get_parts
@@ -17,8 +18,11 @@ def recommend_builds(body: RecommendIn, parts: list[Component] = Depends(get_par
     key = response_cache.cache_key(body, parts)
     cached = response_cache.get(key)
     if cached is not None:
+        RECOMMEND_CACHE.labels("hit").inc()
         return Response(cached, media_type="application/json", headers={"X-Cache": "HIT"})
-    result = recommend(parts, body.to_request())
+    RECOMMEND_CACHE.labels("miss").inc()
+    with Timer(RECOMMEND_DURATION):
+        result = recommend(parts, body.to_request())
     out = RecommendOut(
         allocation=dict(result.allocation),
         recommendations=[RecommendationOut.from_rec(r) for r in result.recommendations],

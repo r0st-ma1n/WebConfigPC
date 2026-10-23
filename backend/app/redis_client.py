@@ -15,6 +15,7 @@ from redis.backoff import NoBackoff
 from redis.retry import Retry
 
 from app.config import settings
+from app.metrics import REDIS_BREAKER_TRIPS
 
 log = logging.getLogger(__name__)
 
@@ -27,12 +28,15 @@ def get_redis() -> redis.Redis | None:
     """Общий клиент (внутри пул соединений, им можно пользоваться из разных потоков)."""
     if not settings.redis_url:
         return None
-    # Короткие таймауты и без повторов: если Redis недоступен, запрос не должен ждать,
-    # у вызывающего кода всегда есть запасной вариант без Redis
+    # Без повторов и с коротким таймаутом подключения: если Redis недоступен, запрос
+    # не должен ждать, у вызывающего кода всегда есть запасной вариант без Redis.
+    # Таймаут чтения длиннее: когда воркер загружен подбором, поток с запросом к Redis
+    # может не получать GIL дольше 0,5 с, и ответ живого Redis считался бы таймаутом
+    # (так и было под нагрузкой — видно по метрике redis_breaker_trips_total)
     return redis.Redis.from_url(
         settings.redis_url,
         socket_connect_timeout=0.5,
-        socket_timeout=0.5,
+        socket_timeout=2.0,
         retry=Retry(NoBackoff(), 0),
         decode_responses=True,
     )
@@ -61,6 +65,7 @@ class Breaker:
             if self._tripped.is_set():
                 return
             self._tripped.set()
+        REDIS_BREAKER_TRIPS.inc()
         log.warning("Redis недоступен, лимиты и кэш каталога работают без него: %s", error)
         threading.Thread(target=self._recover, name="redis-recover", daemon=True).start()
 

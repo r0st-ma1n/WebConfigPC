@@ -5,7 +5,7 @@ import logging
 import redis
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api import ai, auth, builds, components, recommend
 from app.config import settings
 from app.db import get_session
+from app.metrics import MetricsMiddleware, render
 from app.observability import RequestContextMiddleware, setup_logging
 from app.recommender import RecommendError
 from app.redis_client import breaker as redis_breaker
@@ -37,6 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+app.add_middleware(MetricsMiddleware)
 # Добавлен последним, поэтому выполняется первым и видит все запросы
 app.add_middleware(RequestContextMiddleware)
 
@@ -51,6 +53,13 @@ app.include_router(builds.router)
 def recommend_error_handler(_: Request, exc: RecommendError) -> JSONResponse:
     """Понятная ошибка подбора (например, «бюджета не хватает») — код 422 и текст для пользователя."""
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    """Метрики для Prometheus. Путь вне /api: nginx его наружу не отдаёт."""
+    body, content_type = render()
+    return Response(body, media_type=content_type)
 
 
 @app.get("/api/health", tags=["Служебное"])

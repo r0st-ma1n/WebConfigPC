@@ -22,6 +22,7 @@ import redis
 from fastapi import HTTPException, Request
 
 from app.config import settings
+from app.metrics import RATE_LIMITED
 from app.redis_client import Breaker, get_redis
 from app.redis_client import breaker as redis_breaker
 
@@ -117,20 +118,21 @@ ai_limiter = make_limiter("ai", settings.ai_rate_limit_per_minute)
 auth_limiter = make_limiter("auth", settings.auth_rate_limit_per_minute)
 
 
-def _enforce(limiter: Limiter, request: Request, message: str) -> None:
+def _enforce(limiter: Limiter, name: str, request: Request, message: str) -> None:
     if limiter.limit <= 0:  # 0 — ограничение выключено
         return
     client = request.client.host if request.client else "unknown"
     retry_after = limiter.hit(client)
     if retry_after is not None:
+        RATE_LIMITED.labels(name).inc()
         raise HTTPException(429, message, headers={"Retry-After": str(math.ceil(retry_after))})
 
 
 def limit_ai(request: Request) -> None:
     """Зависимость FastAPI для эндпоинтов, которые обращаются к LLM."""
-    _enforce(ai_limiter, request, "Слишком много запросов к ИИ. Попробуйте через минуту.")
+    _enforce(ai_limiter, "ai", request, "Слишком много запросов к ИИ. Попробуйте через минуту.")
 
 
 def limit_auth(request: Request) -> None:
     """Зависимость FastAPI для входа и регистрации."""
-    _enforce(auth_limiter, request, "Слишком много попыток входа. Попробуйте через минуту.")
+    _enforce(auth_limiter, "auth", request, "Слишком много попыток входа. Попробуйте через минуту.")

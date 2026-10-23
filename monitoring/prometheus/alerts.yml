@@ -1,0 +1,42 @@
+# Правила алертов. Активные алерты видны в Prometheus: http://localhost:9090/alerts
+# (отправка в почту или мессенджер настраивается в Alertmanager, здесь его нет)
+groups:
+  - name: webconfigpc
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Бэкенд не отвечает на /metrics больше минуты
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Больше 5% ответов API — ошибки 5xx: {{ $value | humanizePercentage }}"
+
+      # Лёгкие запросы (каталог, проверка совместимости) должны отвечать быстро.
+      # Подбор и ИИ медленные сами по себе, поэтому в это правило не входят
+      - alert: SlowLightRequests
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(
+            http_request_duration_seconds_bucket{route=~"/api/components.*|/api/compatibility/check"}[5m]
+          ))) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 лёгких запросов больше 0,5 с: {{ $value | humanizeDuration }}"
+
+      - alert: RedisUnavailable
+        expr: increase(redis_breaker_trips_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis отключался — лимиты и кэш работали в памяти процессов

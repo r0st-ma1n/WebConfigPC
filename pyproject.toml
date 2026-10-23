@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.143.0",
     "httpx>=0.28.1",
     "openai>=3.29.0",
+    "prometheus-client>=0.26.0",
     "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",

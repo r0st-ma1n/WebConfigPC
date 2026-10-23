@@ -1,0 +1,12 @@
+# Prometheus собирает метрики бэкенда (GET /metrics внутри сети Compose)
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: backend
+    static_configs:
+      - targets: ["backend:8000"]

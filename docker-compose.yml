@@ -51,6 +51,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       LOG_JSON: "true"
       RECOMMEND_CACHE_SECONDS: ${RECOMMEND_CACHE_SECONDS:-3600}
+      # Метрики всех воркеров собираются через файлы в этой папке (app/metrics.py)
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
       # Воркеры uvicorn — отдельные процессы; лимиты общие для них благодаря Redis
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
     # Локальная модель на хосте (LM Studio, Ollama) доступна как http://host.docker.internal:<порт>
@@ -111,5 +113,47 @@ services:
     depends_on:
       - frontend
 
+  # Мониторинг: docker compose --profile monitoring up -d
+  # Prometheus — http://localhost:9090, Grafana — http://localhost:3000 (дашборд открывается сразу)
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    container_name: pcbuilder-prometheus
+    profiles: [monitoring]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:12.2.1
+    container_name: pcbuilder-grafana
+    profiles: [monitoring]
+    restart: unless-stopped
+    environment:
+      # Смотреть дашборд можно без входа; менять — под admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/webconfigpc.json
+    volumes:
+      # Только свои подпапки: остальные (alerting, plugins) остаются из образа
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   pgdata:
+  prometheus-data:
+  grafana-data:

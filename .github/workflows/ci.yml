@@ -122,6 +122,25 @@ jobs:
           curl -fsS -X POST http://localhost:8090/api/recommend \
             -H 'Content-Type: application/json' \
             -d '{"budget": 120000, "scenario": "gaming", "resolution": "1440p"}' > /dev/null
+      # Конфиг Prometheus и правила алертов, затем весь мониторинг: Prometheus должен
+      # видеть бэкенд, а Grafana — загрузить дашборд из репозитория
+      - name: Monitoring
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.7.3 check config /etc/prometheus/prometheus.yml
+          docker compose --profile monitoring up -d prometheus grafana
+          # nginx не отдаёт метрики наружу (на /metrics придёт страница фронтенда)
+          ! curl -fsS http://localhost:8090/metrics | grep -q http_requests_total
+          for i in $(seq 30); do
+            curl -fsS 'http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22backend%22%7D' | grep -q '"1"\]' && break
+            sleep 2
+          done
+          curl -fsS 'http://localhost:9090/api/v1/query?query=up%7Bjob%3D%22backend%22%7D' | grep -q '"1"\]'
+          for i in $(seq 30); do
+            curl -fsS http://localhost:3000/api/dashboards/uid/webconfigpc > /dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:3000/api/dashboards/uid/webconfigpc | grep -q 'Конфигуратор ПК'
       - name: Logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose --profile monitoring logs

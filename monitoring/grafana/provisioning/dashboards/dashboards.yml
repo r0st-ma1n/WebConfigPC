@@ -1,0 +1,11 @@
+# Дашборды из папки monitoring/grafana/dashboards загружаются при старте Grafana
+apiVersion: 1
+
+providers:
+  - name: webconfigpc
+    folder: ""
+    type: file
+    # Дашборд хранится в репозитории: правки в интерфейсе Grafana нужно экспортировать в JSON
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
