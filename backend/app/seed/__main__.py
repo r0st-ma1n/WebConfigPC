@@ -12,6 +12,7 @@ from sqlalchemy import delete, exists, func, select
 
 from app.db import SessionLocal
 from app.models import Component, SavedBuild
+from app.repository import bump_catalog_version
 from app.seed import load_catalog
 
 
@@ -34,6 +35,7 @@ def main() -> None:
         session.execute(delete(Component))
         session.add_all(parts)
         session.commit()
+    bump_catalog_version()
 
     counts = Counter(p.category.value for p in parts)
     print(f"Добавлено комплектующих: {len(parts)}")

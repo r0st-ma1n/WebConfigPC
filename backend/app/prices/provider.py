@@ -15,7 +15,7 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from app.models import Component
-from app.repository import load_parts
+from app.repository import bump_catalog_version, load_parts
 
 # На какую долю цена может измениться за одно обновление (0.5 — на 50%)
 DEFAULT_MAX_CHANGE = 0.5
@@ -85,4 +85,5 @@ def update_prices(
         session.rollback()
     else:
         session.commit()
+        bump_catalog_version()  # бэкенд перечитает каталог со следующего запроса
     return report

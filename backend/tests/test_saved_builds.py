@@ -8,6 +8,7 @@ from app import saved_builds
 from app.db import get_session
 from app.main import app
 from app.models import Component, SavedBuild
+from app.repository import get_parts, load_parts
 
 REQUEST = {"budget": 120_000, "scenario": "gaming", "resolution": "1440p"}
 
@@ -15,6 +16,8 @@ REQUEST = {"budget": 120_000, "scenario": "gaming", "resolution": "1440p"}
 @pytest.fixture
 def client(session):
     app.dependency_overrides[get_session] = lambda: session
+    # Каталог из той же транзакции теста, а не из общего кэша: тест меняет цены без commit
+    app.dependency_overrides[get_parts] = lambda: load_parts(session)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

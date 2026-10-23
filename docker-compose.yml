@@ -1,5 +1,5 @@
 # Всё приложение: docker compose up -d --build  ->  http://localhost:8090
-# Только база для локальной разработки: docker compose up -d db
+# Только база и Redis для локальной разработки: docker compose up -d db redis
 services:
   db:
     image: postgres:17
@@ -19,6 +19,21 @@ services:
       timeout: 3s
       retries: 10
 
+  # Общие для воркеров бэкенда счётчики лимитов и версия каталога. Данные можно потерять
+  # без последствий, поэтому без тома и без сохранения на диск
+  redis:
+    image: redis:7.4-alpine
+    container_name: pcbuilder-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   backend:
     build:
       context: .
@@ -31,12 +46,17 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
       LOG_JSON: "true"
+      # Воркеры uvicorn — отдельные процессы; лимиты общие для них благодаря Redis
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
     # Локальная модель на хосте (LM Studio, Ollama) доступна как http://host.docker.internal:<порт>
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')"]
@@ -58,6 +78,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
       LOG_JSON: "true"
     volumes:
       - ./prices:/data:ro
