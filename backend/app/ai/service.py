@@ -19,7 +19,7 @@ from app.models import Category, Component, Gpu
 from app.recommender.builder import format_rub
 from app.recommender.explain import template_explanation
 from app.recommender.params import SCENARIO_TITLES, Platform, Scenario
-from app.schemas import RecommendIn
+from app.schemas import ExplainSource, ParseSource, RecommendIn
 
 log = logging.getLogger(__name__)
 
@@ -133,11 +133,11 @@ def _summary(params: RecommendIn, parts: list[Component]) -> str:
     return text + "."
 
 
-def parse_request(text: str, parts: list[Component]) -> tuple[RecommendIn | None, str, str]:
+def parse_request(text: str, parts: list[Component]) -> tuple[RecommendIn | None, ParseSource, str]:
     """Свободный текст -> (параметры подбора, источник "llm"/"rules", пояснение)."""
     provider = get_provider()
     parsed: ParsedQuery | None = None
-    source = "rules"
+    source: ParseSource = "rules"
     if provider is not None:
         try:
             raw = _LLMParse.model_validate(provider.generate_json(PARSE_SYSTEM, text, PARSE_SCHEMA))
@@ -238,7 +238,7 @@ def _explain_prompt(facts: dict) -> str:
     return "Данные о сборке:\n" + json.dumps(_facts_for_llm(facts), ensure_ascii=False, separators=(",", ":"))
 
 
-def explain(facts: dict) -> tuple[str, str]:
+def explain(facts: dict) -> tuple[str, ExplainSource]:
     """Объяснение сборки -> (текст, источник "llm"/"template")."""
     provider = get_provider()
     if provider is not None:

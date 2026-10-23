@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api", tags=["Рекомендации"])
 def recommend_builds(body: RecommendIn, parts: list[Component] = Depends(get_parts)):
     result = recommend(parts, body.to_request())
     return RecommendOut(
-        allocation={cat.value: rub for cat, rub in result.allocation.items()},
+        allocation=dict(result.allocation),
         recommendations=[RecommendationOut.from_rec(r) for r in result.recommendations],
     )
 

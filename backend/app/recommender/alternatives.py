@@ -15,6 +15,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from app.domain import Build
 from app.models import Category, Component
@@ -41,9 +42,13 @@ SCENARIO_METRIC = {
 }
 
 
+# "upgrade" — доплатить, "saving" — сэкономить
+AlternativeKind = Literal["upgrade", "saving"]
+
+
 @dataclass
 class Alternative:
-    kind: str  # "upgrade" — доплатить, "saving" — сэкономить
+    kind: AlternativeKind
     category: Category
     old_part: Component
     new_part: Component
@@ -133,7 +138,7 @@ def _make(
         if after is not None and (before is None or before.id != after.id):
             extra.append((before, after))
 
-    kind = "upgrade" if price_delta > 0 else "saving"
+    kind: AlternativeKind = "upgrade" if price_delta > 0 else "saving"
     text = f"{candidate.title} вместо {current.title}"
     if extra:
         text += " (также: " + ", ".join(after.title for _, after in extra) + ")"
