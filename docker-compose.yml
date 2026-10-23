@@ -19,13 +19,15 @@ services:
       timeout: 3s
       retries: 10
 
-  # Общие для воркеров бэкенда счётчики лимитов и версия каталога. Данные можно потерять
-  # без последствий, поэтому без тома и без сохранения на диск
+  # Общие для воркеров бэкенда счётчики лимитов, версия каталога и кэш результатов подбора.
+  # Данные можно потерять без последствий, поэтому без тома и без сохранения на диск.
+  # Память ограничена: при нехватке вытесняются давно не использованные ключи с TTL
+  # (записи кэша), а версия каталога без TTL остаётся
   redis:
     image: redis:7.4-alpine
     container_name: pcbuilder-redis
     restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru"]
     ports:
       - "${REDIS_PORT:-6380}:6379"
     healthcheck:
@@ -48,6 +50,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       LOG_JSON: "true"
+      RECOMMEND_CACHE_SECONDS: ${RECOMMEND_CACHE_SECONDS:-3600}
       # Воркеры uvicorn — отдельные процессы; лимиты общие для них благодаря Redis
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
     # Локальная модель на хосте (LM Studio, Ollama) доступна как http://host.docker.internal:<порт>
@@ -97,6 +100,16 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  # Нагрузочный тест (loadtest/k6.js): docker compose --profile loadtest run --rm k6 run -e SCENARIO=mixed /scripts/k6.js
+  # Запросы идут через nginx, как у браузера
+  k6:
+    image: grafana/k6:1.4.0
+    profiles: [loadtest]
+    volumes:
+      - ./loadtest:/scripts:ro
+    depends_on:
+      - frontend
 
 volumes:
   pgdata:

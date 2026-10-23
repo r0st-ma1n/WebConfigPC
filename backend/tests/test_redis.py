@@ -1,4 +1,4 @@
-"""Redis: общий лимит запросов для нескольких воркеров, кэш каталога и его сброс.
+"""Redis: общий лимит запросов для нескольких воркеров, кэш каталога и результатов подбора.
 
 Тесты с Redis идут на отдельной базе (TEST_REDIS_URL, по умолчанию база 15 Redis из
 docker-compose) и пропускаются, если Redis не запущен. Само приложение в тестах работает
@@ -16,10 +16,10 @@ from fastapi.testclient import TestClient
 from redis.backoff import NoBackoff
 from redis.retry import Retry
 
-from app import main, redis_client, repository
+from app import main, redis_client, repository, response_cache
 from app.rate_limit import RedisRateLimiter
 from app.redis_client import Breaker
-from app.repository import CatalogCache, bump_catalog_version, catalog_version
+from app.repository import CatalogCache, bump_catalog_version, catalog_version, get_parts
 from app.seed import load_catalog
 
 TEST_REDIS_URL = os.environ.get("TEST_REDIS_URL", "redis://localhost:6380/15")
@@ -229,6 +229,61 @@ def test_catalog_works_when_redis_is_down(monkeypatch):
     cache.get()
     cache.get()
     assert loader.calls == 1  # без версии кэш живёт по TTL
+
+
+# ---------- Кэш результатов подбора ----------
+
+REQUEST = {"budget": 120_000, "scenario": "gaming", "resolution": "1440p"}
+
+
+@pytest.fixture
+def api(client_redis, monkeypatch):
+    monkeypatch.setattr(response_cache, "get_redis", lambda: client_redis)
+    main.app.dependency_overrides[get_parts] = lambda: CATALOG
+    with TestClient(main.app) as c:
+        yield c
+    main.app.dependency_overrides.clear()
+
+
+def test_recommend_second_identical_request_comes_from_cache(api):
+    first = api.post("/api/recommend", json=REQUEST)
+    second = api.post("/api/recommend", json=REQUEST)
+    assert first.headers["X-Cache"] == "MISS"
+    assert second.headers["X-Cache"] == "HIT"
+    assert second.json() == first.json()
+
+
+def test_recommend_cache_depends_on_params(api):
+    api.post("/api/recommend", json=REQUEST)
+    other = api.post("/api/recommend", json={**REQUEST, "budget": 125_000})
+    assert other.headers["X-Cache"] == "MISS"
+
+
+def test_recommend_cache_misses_after_price_change(api):
+    """Ключ включает цены каталога: после импорта цен старый результат не вернётся."""
+    api.post("/api/recommend", json=REQUEST)
+    gpu = next(p for p in CATALOG if p.category == "gpu")
+    old_price = gpu.price_rub
+    gpu.price_rub += 1_000
+    try:
+        response = api.post("/api/recommend", json=REQUEST)
+    finally:
+        gpu.price_rub = old_price
+    assert response.headers["X-Cache"] == "MISS"
+    assert api.post("/api/recommend", json=REQUEST).headers["X-Cache"] == "HIT"  # старая цена — старый ключ
+
+
+def test_recommend_works_without_redis_cache(monkeypatch):
+    monkeypatch.setattr(response_cache, "get_redis", dead_redis)
+    main.app.dependency_overrides[get_parts] = lambda: CATALOG
+    try:
+        with TestClient(main.app) as c:
+            response = c.post("/api/recommend", json=REQUEST)
+    finally:
+        main.app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert response.headers["X-Cache"] == "MISS"
+    assert len(response.json()["recommendations"]) == 3
 
 
 # ---------- Готовность ----------
