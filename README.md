@@ -153,6 +153,28 @@ Redis необязателен, и его отказ не роняет API:
 - `/api/health/ready` сообщает состояние Redis (`ok`, `error`, `disabled`), но 503 отдаёт
   только при недоступной базе: без Redis экземпляр продолжает обслуживать запросы.
 
+### Типы фронтенда генерируются из OpenAPI
+
+FastAPI строит OpenAPI-схему по Pydantic-моделям, а фронтенд получает из неё
+TypeScript-типы (`openapi-typescript`), вместо того чтобы повторять их вручную:
+
+```bash
+uv run python backend/scripts/export_openapi.py   # схема -> frontend/openapi.json
+cd frontend && npm run gen:api                     # типы  -> frontend/src/api-schema.ts
+```
+
+Оба файла лежат в репозитории, поэтому изменение API видно в diff pull request.
+В `src/types.ts` у сгенерированных типов короткие имена (`Component`, `Recommendation`...),
+а тела запросов в `src/api.ts` проверяются через `satisfies` по схемам `*In`.
+CI выгружает схему заново и падает, если она или типы разошлись с закоммиченными:
+поменять ответ API и забыть про фронтенд не получится, а TypeScript покажет каждое
+место, где фронтенд использует изменившееся поле.
+
+Чтобы типы были точными, схемы бэкенда описывают допустимые значения: перечисления
+и `Literal` вместо `str` (`tier`, `level`, `kind`, `source`). Во фронтенде они становятся
+union-типами вроде `'upgrade' | 'saving'`. Вручную описано только событие потока
+объяснения: NDJSON-поток в OpenAPI не описывается.
+
 ### Логика не зависит от базы и HTTP
 
 Совместимость и подбор работают с обычными объектами в памяти, сборка неизменяема
@@ -243,11 +265,13 @@ uv run ruff check backend         # линтер
 uv run ruff format backend        # форматирование (в CI — ruff format --check)
 cd backend && uv run mypy         # проверка типов
 cd frontend && npm run lint && npm test && npm run build
+cd frontend && npm run gen:api    # типы API после выгрузки схемы (см. «Типы фронтенда»)
 cd frontend && npm run test:e2e   # e2e на Playwright (один раз: npx playwright install chromium)
 ```
 
 Те же проверки запускает GitHub Actions на каждый push и pull request
-(`.github/workflows/ci.yml`). В CI тесты идут с настоящим PostgreSQL, а в конце
+(`.github/workflows/ci.yml`). В CI тесты идут с настоящим PostgreSQL, типы API сверяются
+со схемой бэкенда, а в конце
 собирается и запускается весь стек в Docker и проверяется подбор через nginx.
 
 Тесты не требуют запущенной базы: модули совместимости и подбора работают с объектами
@@ -340,10 +364,13 @@ backend/
     api/                 роутеры FastAPI
     seed/                components.json и скрипт заполнения БД
   migrations/            миграции Alembic
-  scripts/               eval_explanations.py — оценка точности объяснений LLM
+  scripts/               eval_explanations.py — оценка точности объяснений LLM,
+                         export_openapi.py — выгрузка OpenAPI-схемы для фронтенда
   tests/                 pytest
 frontend/
+  openapi.json           OpenAPI-схема бэкенда (генерируется)
   src/
+    api-schema.ts        типы API из openapi.json (генерируется, npm run gen:api)
     api.ts, types.ts, format.ts, router.tsx
     auth.tsx             текущий пользователь (контекст React)
     pages/               RecommendPage (подбор), ManualPage (ручная сборка), SavedBuildPage (/b/<код>),

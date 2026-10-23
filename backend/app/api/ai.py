@@ -15,7 +15,7 @@ from app.ai import service
 from app.ai.factory import get_provider
 from app.models import Component
 from app.rate_limit import limit_ai
-from app.recommender import Tier, evaluate_build
+from app.recommender import evaluate_build
 from app.repository import build_from_ids, get_parts
 from app.schemas import AiStatusOut, ExplainIn, ExplainOut, ParseIn, ParseOut
 
@@ -42,8 +42,7 @@ def parse(body: ParseIn, parts: list[Component] = Depends(get_parts)):
 def _facts(body: ExplainIn, parts: list[Component]) -> dict:
     """Факты о сборке, по которым модель пишет объяснение."""
     build = build_from_ids(parts, body.part_ids)
-    tier = Tier(body.tier) if body.tier else None
-    return evaluate_build(parts, body.to_request(), build, tier).facts
+    return evaluate_build(parts, body.to_request(), build, body.tier).facts
 
 
 @router.post("/explain", response_model=ExplainOut, dependencies=[Depends(limit_ai)])

@@ -75,6 +75,20 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      # Типы API генерируются из OpenAPI-схемы бэкенда. Если Pydantic-схему поменяли,
+      # а схему и типы во фронтенде не обновили, проверка падает
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: API types match backend
+        run: |
+          uv run --frozen --no-dev --project .. python ../backend/scripts/export_openapi.py
+          npm run gen:api
+          git diff --exit-code -- openapi.json src/api-schema.ts || {
+            echo "::error::Схема API изменилась. Выполните: uv run python backend/scripts/export_openapi.py && (cd frontend && npm run gen:api)"
+            exit 1
+          }
       - run: npm run lint
       - run: npm test
       - name: Type check and build

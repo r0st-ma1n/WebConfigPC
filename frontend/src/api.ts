@@ -1,7 +1,7 @@
 // Клиент API бэкенда. Все запросы идут на /api (в разработке Vite проксирует их на :8000)
 import type {
-  AiStatus, Category, CheckResult, Component, Option, ParseResult,
-  RecommendParams, RecommendResult, Recommendation, Resolution, SavedBuild, SavedBuildSummary, User,
+  AiStatus, Category, CheckResult, Component, Option, ParseResult, RecommendParams, RecommendResult,
+  Recommendation, Resolution, SavedBuild, SavedBuildSummary, Schemas, User,
 } from './types'
 
 export class ApiError extends Error {
@@ -33,20 +33,21 @@ async function request<T>(path: string, body?: unknown, method?: 'DELETE'): Prom
   return data as T
 }
 
-/** Событие потока объяснения (формат — в backend/app/ai/service.py, explain_stream) */
+/** Событие потока объяснения (формат — в backend/app/ai/service.py, explain_stream).
+ * Поток NDJSON в OpenAPI не описывается, поэтому этот тип написан вручную */
 export type ExplainEvent =
   | { delta: string }
-  | { done: true; source: 'llm' | 'template'; text?: string }
+  | { done: true; source: Schemas['ExplainOut']['source']; text?: string }
 
 /** Читает NDJSON-поток объяснения и передаёт события в onEvent по мере прихода. */
 async function explainStream(
-  params: RecommendParams, partIds: number[], tier: string | null,
+  params: RecommendParams, partIds: number[], tier: Recommendation['tier'],
   onEvent: (e: ExplainEvent) => void, signal: AbortSignal,
 ): Promise<void> {
   const response = await fetch('/api/ai/explain/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...params, part_ids: partIds, tier }),
+    body: JSON.stringify({ ...params, part_ids: partIds, tier } satisfies Schemas['ExplainIn']),
     signal,
   })
   if (!response.ok || !response.body) throw new ApiError('Не удалось получить объяснение.')
@@ -67,24 +68,26 @@ async function explainStream(
 export const api = {
   components: (category: Category) => request<Component[]>(`/components?category=${category}`),
   options: (partIds: number[], category: Category) =>
-    request<Option[]>('/components/options', { part_ids: partIds, category }),
+    request<Option[]>('/components/options', { part_ids: partIds, category } satisfies Schemas['OptionsIn']),
   check: (partIds: number[], complete: boolean, resolution: Resolution | null) =>
-    request<CheckResult>('/compatibility/check', { part_ids: partIds, complete, resolution }),
+    request<CheckResult>('/compatibility/check', { part_ids: partIds, complete, resolution } satisfies Schemas['CheckIn']),
   recommend: (params: RecommendParams) => request<RecommendResult>('/recommend', params),
   evaluate: (params: RecommendParams, partIds: number[]) =>
-    request<Recommendation>('/recommend/evaluate', { ...params, part_ids: partIds }),
+    request<Recommendation>('/recommend/evaluate', { ...params, part_ids: partIds } satisfies Schemas['EvaluateIn']),
   aiStatus: () => request<AiStatus>('/ai/status'),
-  parse: (text: string) => request<ParseResult>('/ai/parse', { text }),
+  parse: (text: string) => request<ParseResult>('/ai/parse', { text } satisfies Schemas['ParseIn']),
   explainStream,
   saveBuild: (params: RecommendParams, partIds: number[], tier: Recommendation['tier']) =>
-    request<{ slug: string }>('/builds', { ...params, part_ids: partIds, tier }),
+    request<Schemas['SaveBuildOut']>('/builds', { ...params, part_ids: partIds, tier } satisfies Schemas['SaveBuildIn']),
   savedBuild: (slug: string) => request<SavedBuild>(`/builds/${encodeURIComponent(slug)}`),
   myBuilds: () => request<SavedBuildSummary[]>('/builds'),
   deleteBuild: (slug: string) => request<null>(`/builds/${encodeURIComponent(slug)}`, undefined, 'DELETE'),
 
   me: () => request<User>('/auth/me'),
-  register: (email: string, password: string) => request<User>('/auth/register', { email, password }),
-  login: (email: string, password: string) => request<User>('/auth/login', { email, password }),
+  register: (email: string, password: string) =>
+    request<User>('/auth/register', { email, password } satisfies Schemas['CredentialsIn']),
+  login: (email: string, password: string) =>
+    request<User>('/auth/login', { email, password } satisfies Schemas['CredentialsIn']),
   logout: () => request<null>('/auth/logout', {}),
   logoutAll: () => request<null>('/auth/logout-all', {}),
 }

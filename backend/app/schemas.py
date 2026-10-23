@@ -1,15 +1,20 @@
 """Pydantic-схемы запросов и ответов API."""
 
 from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.balance import Resolution
-from app.compatibility import CheckResult, Issue
+from app.compatibility import CheckResult, Issue, Level
 from app.models import Category, Component
 from app.recommender import Recommendation, RecommendRequest
-from app.recommender.alternatives import Alternative
+from app.recommender.alternatives import Alternative, AlternativeKind
 from app.recommender.params import Platform, Scenario, Tier
+
+# Кто сформировал текст: модель, правила разбора или шаблон объяснения
+ParseSource = Literal["llm", "rules"]
+ExplainSource = Literal["llm", "template"]
 
 # ---------- Комплектующие ----------
 
@@ -24,7 +29,7 @@ class ComponentOut(BaseModel):
     perf_score: int
     power_w: int
     # Характеристики конкретной категории: socket, vram_gb, length_mm и т.д.
-    specs: dict
+    specs: dict[str, Any]
 
     @classmethod
     def from_model(cls, part: Component) -> ComponentOut:
@@ -47,7 +52,7 @@ class ComponentOut(BaseModel):
 
 
 class IssueOut(BaseModel):
-    level: str
+    level: Level
     code: str
     message: str
     part_ids: list[int]
@@ -116,7 +121,7 @@ class EvaluateIn(RecommendIn):
 
 
 class AlternativeOut(BaseModel):
-    kind: str
+    kind: AlternativeKind
     category: Category
     text: str
     price_delta: int
@@ -143,7 +148,7 @@ class AlternativeOut(BaseModel):
 
 
 class RecommendationOut(BaseModel):
-    tier: str | None
+    tier: Tier | None
     title: str
     parts: list[ComponentOut]
     total_price: int
@@ -153,13 +158,14 @@ class RecommendationOut(BaseModel):
     upgrades: list[AlternativeOut]
     savings: list[AlternativeOut]
     explanation: str
-    explanation_source: str = "template"  # "template" или "llm"
-    facts: dict
+    explanation_source: ExplainSource = "template"
+    # Факты о сборке, из которых строится объяснение (для ИИ и шаблона)
+    facts: dict[str, Any]
 
     @classmethod
     def from_rec(cls, rec: Recommendation) -> RecommendationOut:
         return cls(
-            tier=rec.tier.value if rec.tier else None,
+            tier=rec.tier,
             title=rec.title,
             parts=[ComponentOut.from_model(p) for p in rec.build.parts],
             total_price=rec.build.total_price,
@@ -174,7 +180,7 @@ class RecommendationOut(BaseModel):
 
 
 class RecommendOut(BaseModel):
-    allocation: dict[str, int]  # плановое распределение бюджета по категориям, ₽
+    allocation: dict[Category, int]  # плановое распределение бюджета по категориям, ₽
     recommendations: list[RecommendationOut]
 
 
@@ -193,18 +199,18 @@ class ParseIn(BaseModel):
 
 class ParseOut(BaseModel):
     params: RecommendIn | None  # None — из текста не удалось понять бюджет
-    source: str  # "llm" или "rules"
+    source: ParseSource
     notes: str  # пояснение для пользователя: что понято и что нет
 
 
 class ExplainIn(RecommendIn):
     part_ids: list[int]
-    tier: str | None = None
+    tier: Tier | None = None
 
 
 class ExplainOut(BaseModel):
     text: str
-    source: str  # "llm" или "template"
+    source: ExplainSource
 
 
 # ---------- Сохранённые сборки ----------

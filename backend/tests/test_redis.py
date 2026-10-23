@@ -31,7 +31,7 @@ def client_redis():
     client = redis.Redis.from_url(TEST_REDIS_URL, socket_connect_timeout=0.5, decode_responses=True)
     try:
         client.ping()
-    except redis.ConnectionError:
+    except redis.RedisError:  # без Docker на Windows бывает не отказ, а таймаут
         pytest.skip("Redis не запущен")
     yield client
     client.flushdb()
